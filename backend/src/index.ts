@@ -20,19 +20,16 @@ const io = new Server(server, {
   }
 });
 
+import { initSocketManager } from './socketManager';
+
 // Basic health check route
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Chat backend is running' });
 });
 
-// Socket.io connection
-io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`);
+// Delegate all socket handling to socketManager
+initSocketManager(io);
 
-  socket.on('disconnect', () => {
-    console.log(`User disconnected: ${socket.id}`);
-  });
-});
 
 // Connect to MongoDB
 const mongoUri = 'mongodb://localhost:27017/chat';

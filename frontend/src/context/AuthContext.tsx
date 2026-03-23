@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react';
 import api from '../services/api';
+import { io, Socket } from 'socket.io-client';
+import { usePresence } from '../hooks/usePresence';
 
 export interface User {
   id: string;
@@ -11,6 +13,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  socket: Socket | null;
   login: (token: string, user: User) => void;
   logout: () => void;
   updateUser: (user: User) => void;
@@ -22,6 +25,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+
+  // Manage socket lifecycle based on token
+  useEffect(() => {
+    if (token) {
+      const newSocket = io('http://localhost:5000', { transports: ['websocket'] });
+      newSocket.on('connect', () => newSocket.emit('authenticate', token));
+      socketRef.current = newSocket;
+      setSocket(newSocket);
+      return () => {
+        newSocket.disconnect();
+        socketRef.current = null;
+        setSocket(null);
+      };
+    }
+  }, [token]);
+
+  // Track presence for this tab
+  usePresence(socket);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -70,7 +93,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, isLoading, socket, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
