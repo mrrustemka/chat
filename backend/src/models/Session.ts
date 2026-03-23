@@ -4,6 +4,8 @@ export interface ISession extends Document {
   userId: mongoose.Types.ObjectId;
   token: string;
   expiresAt: Date;
+  ipAddress?: string;
+  userAgent?: string;
   createdAt: Date;
 }
 
@@ -22,6 +24,14 @@ const SessionSchema: Schema = new Schema({
     type: Date,
     required: true,
     index: { expires: 0 } // Document automatically deleted when expiresAt is reached
+  },
+  ipAddress: {
+    type: String,
+    required: false
+  },
+  userAgent: {
+    type: String,
+    required: false
   }
 }, { timestamps: true });
 

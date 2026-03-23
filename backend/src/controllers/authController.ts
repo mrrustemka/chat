@@ -57,7 +57,9 @@ export const login = async (req: Request, res: Response) => {
     const newSession = new Session({
       userId: user._id,
       token: 'temp', 
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days expiration
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days expiration
+      ipAddress: req.ip || req.socket.remoteAddress,
+      userAgent: req.headers['user-agent']
     });
 
     const token = jwt.sign(
@@ -173,5 +175,53 @@ export const resetPasswordConfirm = async (req: Request, res: Response) => {
     res.json({ message: 'Password reset successfully. All sessions have been logged out.' });
   } catch (error) {
     return res.status(400).json({ message: 'Invalid or expired reset token' });
+  }
+};
+
+export const getSessions = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const sessions = await Session.find({ userId: req.user._id }).sort({ createdAt: -1 });
+    
+    const formattedSessions = sessions.map(session => ({
+      id: session._id,
+      ipAddress: session.ipAddress,
+      userAgent: session.userAgent,
+      createdAt: session.createdAt,
+      expiresAt: session.expiresAt,
+      isCurrentSession: session._id.toString() === req.sessionId
+    }));
+
+    res.json(formattedSessions);
+  } catch (error) {
+    console.error('Get sessions error:', error);
+    res.status(500).json({ message: 'Server error retrieving sessions' });
+  }
+};
+
+export const logoutSession = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const sessionToLogout = await Session.findById(req.params.id);
+    
+    if (!sessionToLogout) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    if (sessionToLogout.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to log out this session' });
+    }
+
+    await Session.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Session logged out successfully' });
+  } catch (error) {
+    console.error('Logout session error:', error);
+    res.status(500).json({ message: 'Server error during session logout' });
   }
 };
