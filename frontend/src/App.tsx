@@ -6,6 +6,7 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Profile } from './pages/Profile';
 import { Friends } from './pages/Friends';
+import { Rooms } from './pages/Rooms';
 import './App.css';
 
 const Home: React.FC = () => {
@@ -16,7 +17,8 @@ const Home: React.FC = () => {
       <p>Hello, {user?.username}!</p>
       <nav>
         <Link to="/profile">Profile</Link>{' | '}
-        <Link to="/friends">Friends</Link>
+        <Link to="/friends">Friends</Link>{' | '}
+        <Link to="/rooms">Rooms</Link>
       </nav>
     </div>
   );
@@ -34,6 +36,7 @@ const AppContent: React.FC = () => {
         <Route path="/" element={<Home />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/friends" element={<Friends />} />
+        <Route path="/rooms" element={<Rooms />} />
       </Route>
     </Routes>
   );
