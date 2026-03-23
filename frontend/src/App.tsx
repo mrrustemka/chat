@@ -5,6 +5,7 @@ import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Profile } from './pages/Profile';
+import { Friends } from './pages/Friends';
 import './App.css';
 
 const Home: React.FC = () => {
@@ -14,7 +15,8 @@ const Home: React.FC = () => {
       <h1>Welcome to Chat App</h1>
       <p>Hello, {user?.username}!</p>
       <nav>
-        <Link to="/profile">Go to Profile (Settings & Logout)</Link>
+        <Link to="/profile">Profile</Link>{' | '}
+        <Link to="/friends">Friends</Link>
       </nav>
     </div>
   );
@@ -31,6 +33,7 @@ const AppContent: React.FC = () => {
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Home />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/friends" element={<Friends />} />
       </Route>
     </Routes>
   );

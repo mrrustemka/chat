@@ -116,11 +116,70 @@ async function runTests() {
     const meRes2 = await get('/me', token2);
     console.log(`✅ Session 2 is still valid! User: ${meRes2.data.username}`);
 
-    console.log('\n🎉 ALL TESTS PASSED!');
+    console.log('\n🎉 ALL AUTH TESTS PASSED!');
   } catch (error: unknown) {
     const errObj = error as { data?: unknown } | null;
     console.error('❌ Test failed:', errObj?.data || error);
   }
 }
 
-runTests();
+// ---- Friend List Tests ----
+const FRIENDS_URL = 'http://localhost:5000/api/friends';
+const FRIENDS_AUTH_URL = 'http://localhost:5000/api/auth';
+
+async function friendsReq(method: string, path: string, authToken: string, body?: Record<string, unknown>) {
+  const base = path.startsWith('/friends') ? FRIENDS_URL : FRIENDS_AUTH_URL;
+  const url = path.startsWith('/friends') ? `${FRIENDS_URL}${path.replace('/friends', '')}` : `${FRIENDS_AUTH_URL}${path}`;
+  const headers: Record<string, string> = { Authorization: `Bearer ${authToken}` };
+  if (body) headers['Content-Type'] = 'application/json';
+  const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const json = await res.json();
+  if (!res.ok) throw { status: res.status, data: json };
+  return json;
+}
+
+async function runFriendTests() {
+  console.log('\n\n==== FRIEND LIST TESTS ====');
+  try {
+    const ts = Date.now();
+    const emailA = `a-${ts}@test.com`, usernameA = `userA${ts}`, emailB = `b-${ts}@test.com`, usernameB = `userB${ts}`, pw = 'password123';
+
+    await friendsReq('POST', '/register', '', { email: emailA, username: usernameA, password: pw });
+    await friendsReq('POST', '/register', '', { email: emailB, username: usernameB, password: pw });
+
+    const { token: tokenA } = await friendsReq('POST', '/login', '', { email: emailA, password: pw });
+    const { token: tokenB } = await friendsReq('POST', '/login', '', { email: emailB, password: pw });
+
+    console.log('\n1. Sending friend request from A to B...');
+    const { id: reqId } = await friendsReq('POST', '/friends/request', tokenA, { username: usernameB });
+    console.log('✅ Request sent, id:', reqId);
+
+    console.log('\n2. B checks pending requests...');
+    const pending = await friendsReq('GET', '/friends/pending', tokenB);
+    if (pending.length !== 1) throw new Error('Expected 1 pending request');
+    console.log('✅ B sees 1 pending request from A');
+
+    console.log('\n3. B accepts the request...');
+    await friendsReq('POST', `/friends/accept/${reqId}`, tokenB);
+    console.log('✅ Request accepted');
+
+    console.log('\n4. A checks friend list...');
+    const friendsA = await friendsReq('GET', '/friends', tokenA);
+    if (friendsA.length !== 1) throw new Error('Expected 1 friend');
+    console.log(`✅ A has 1 friend: ${friendsA[0].user.username}`);
+
+    console.log('\n5. A removes B...');
+    await friendsReq('DELETE', `/friends/${reqId}`, tokenA);
+    const friendsAfter = await friendsReq('GET', '/friends', tokenA);
+    if (friendsAfter.length !== 0) throw new Error('Expected 0 friends after removal');
+    console.log('✅ B removed successfully');
+
+    console.log('\n🎉 ALL FRIEND LIST TESTS PASSED!');
+  } catch (error: unknown) {
+    const errObj = error as { data?: unknown; message?: string } | null;
+    console.error('❌ Friend test failed:', errObj?.data || errObj?.message || error);
+  }
+}
+
+runTests().then(() => runFriendTests());
+

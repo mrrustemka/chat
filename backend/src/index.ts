@@ -4,6 +4,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import mongoose from 'mongoose';
 import authRoutes from './routes/authRoutes';
+import friendRoutes from './routes/friendRoutes';
 
 const app = express();
 const port = 5000;
@@ -11,6 +12,7 @@ const port = 5000;
 app.use(cors());
 app.use(express.json());
 app.use('/api/auth', authRoutes);
+app.use('/api/friends', friendRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, {
