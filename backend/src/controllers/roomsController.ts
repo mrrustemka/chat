@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import Room from '../models/Room';
 import User from '../models/User';
 import Message from '../models/Message';
-import File from '../models/File';
+import FileModel from '../models/File';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 // POST /rooms  { name, description?, type? }
@@ -100,7 +100,7 @@ export const deleteRoom = async (req: AuthRequest, res: Response) => {
 
     // Delete associated messages and files
     await Message.deleteMany({ room: req.params.id });
-    await File.deleteMany({ room: req.params.id });
+    await FileModel.deleteMany({ room: req.params.id });
 
     await Room.findByIdAndDelete(req.params.id);
     res.json({ message: 'Room deleted and all associated data cleared' });
@@ -292,7 +292,7 @@ export const removeMember = async (req: AuthRequest, res: Response) => {
     if (!room.bannedUsers.some(b => b.user.toString() === targetUserId)) {
       room.bannedUsers.push({
         user: new mongoose.Types.ObjectId(targetUserId),
-        bannedBy: userId,
+        bannedBy: userId as any,
         bannedAt: new Date()
       });
     }
@@ -411,6 +411,101 @@ export const listMessages = async (req: AuthRequest, res: Response) => {
     res.json(messages);
   } catch (error) {
     console.error('listMessages error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// POST /rooms/:id/messages
+export const sendMessage = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { id: roomId } = req.params;
+    const { content, type, replyTo } = req.body;
+
+    if (!content) return res.status(400).json({ message: 'Content is required' });
+
+    // Max 3 KB (approx 3072 characters)
+    if (Buffer.byteLength(content, 'utf8') > 3072) {
+      return res.status(400).json({ message: 'Message exceeds 3 KB size limit' });
+    }
+
+    const room = await Room.findById(roomId);
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+
+    const isMember = room.members.some(m => m.toString() === userId.toString());
+    const isBanned = room.bannedUsers.some(b => b.user.toString() === userId.toString());
+
+    if (room.visibility === 'private' && !isMember) {
+      return res.status(403).json({ message: 'Join the room first' });
+    }
+    if (isBanned) {
+      return res.status(403).json({ message: 'You are banned from this room' });
+    }
+
+    const message = new Message({
+      room: roomId,
+      sender: userId,
+      content,
+      type: type || 'text',
+      replyTo: replyTo || undefined
+    });
+
+    await message.save();
+    res.status(201).json(message);
+  } catch (error) {
+    console.error('sendMessage error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// POST /rooms/:id/upload
+export const uploadFile = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { id: roomId } = req.params;
+    const file = req.file;
+
+    if (!file) return res.status(400).json({ message: 'No file uploaded' });
+
+    const room = await Room.findById(roomId);
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+
+    const isMember = room.members.some(m => m.toString() === userId.toString());
+    const isBanned = room.bannedUsers.some(b => b.user.toString() === userId.toString());
+
+    if (room.visibility === 'private' && !isMember) {
+      return res.status(403).json({ message: 'Join the room first' });
+    }
+    if (isBanned) {
+      return res.status(403).json({ message: 'You are banned from this room' });
+    }
+
+    const isImage = file.mimetype.startsWith('image/');
+    
+    // 1. Create File record
+    const fileDoc = new FileModel({
+      originalName: file.originalname,
+      filename: file.filename,
+      path: file.path,
+      room: roomId as any,
+      uploader: userId as any,
+      size: file.size,
+      mimetype: file.mimetype
+    });
+    await fileDoc.save();
+
+    // 2. Create Message record
+    const message = new Message({
+      room: roomId,
+      sender: userId,
+      content: file.originalname,
+      type: isImage ? 'image' : 'file'
+    });
+    await message.save();
+
+    res.status(201).json({ message, file: fileDoc });
+  } catch (error) {
+    console.error('uploadFile error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

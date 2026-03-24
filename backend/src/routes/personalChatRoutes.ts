@@ -1,10 +1,12 @@
 import express from 'express';
 import { authenticate } from '../middleware/authMiddleware';
+import { upload } from '../middleware/uploadMiddleware';
 import {
   getOrCreateChat,
   listChats,
   listMessages,
-  sendMessage
+  sendMessage,
+  uploadFile
 } from '../controllers/personalChatController';
 
 const router = express.Router();
@@ -15,5 +17,6 @@ router.post('/get-or-create/:username', getOrCreateChat as express.RequestHandle
 router.get('/', listChats as express.RequestHandler);
 router.get('/:id/messages', listMessages as express.RequestHandler);
 router.post('/:id/messages', sendMessage as express.RequestHandler);
+router.post('/:id/upload', upload.single('file'), uploadFile as express.RequestHandler);
 
 export default router;

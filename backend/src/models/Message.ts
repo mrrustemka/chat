@@ -4,6 +4,7 @@ export interface IMessage extends Document {
   room?: mongoose.Types.ObjectId;
   personalChat?: mongoose.Types.ObjectId;
   sender: mongoose.Types.ObjectId;
+  replyTo?: mongoose.Types.ObjectId;
   content: string;
   type: 'text' | 'image' | 'file';
   createdAt: Date;
@@ -37,6 +38,11 @@ const MessageSchema: Schema = new Schema({
     type: String,
     enum: ['text', 'image', 'file'],
     default: 'text'
+  },
+  replyTo: {
+    type: Schema.Types.ObjectId,
+    ref: 'Message',
+    required: false
   }
 }, { timestamps: true });
 

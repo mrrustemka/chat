@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import http from 'http';
 import { Server } from 'socket.io';
 import mongoose from 'mongoose';
@@ -13,6 +14,7 @@ const port = 5000;
 
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/rooms', roomRoutes);

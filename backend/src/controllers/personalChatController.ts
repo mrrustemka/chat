@@ -3,6 +3,7 @@ import User from '../models/User';
 import PersonalChat from '../models/PersonalChat';
 import Message from '../models/Message';
 import Friendship from '../models/Friendship';
+import FileModel from '../models/File';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 // POST /personal-chats/get-or-create/:username
@@ -81,9 +82,14 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!._id;
     const { id } = req.params;
-    const { content, type } = req.body;
+    const { content, type, replyTo } = req.body;
 
     if (!content) return res.status(400).json({ message: 'Content is required' });
+
+    // Max 3 KB
+    if (Buffer.byteLength(content, 'utf8') > 3072) {
+      return res.status(400).json({ message: 'Message exceeds 3 KB size limit' });
+    }
 
     const chat = await PersonalChat.findById(id);
     if (!chat) return res.status(404).json({ message: 'Chat not found' });
@@ -123,13 +129,60 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       personalChat: id,
       sender: userId,
       content,
-      type: type || 'text'
+      type: type || 'text',
+      replyTo: replyTo || undefined
     });
 
     await message.save();
     res.status(201).json(message);
   } catch (error) {
     console.error('sendMessage error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// POST /personal-chats/:id/upload
+export const uploadFile = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { id: chatId } = req.params;
+    const file = req.file;
+
+    if (!file) return res.status(400).json({ message: 'No file uploaded' });
+
+    const chat = await PersonalChat.findById(chatId);
+    if (!chat) return res.status(404).json({ message: 'Chat not found' });
+
+    if (!chat.participants.some(p => p.toString() === userId.toString())) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const isImage = file.mimetype.startsWith('image/');
+
+    // 1. Create File record
+    const fileDoc = new FileModel({
+      originalName: file.originalname,
+      filename: file.filename,
+      path: file.path,
+      personalChat: chatId as any,
+      uploader: userId as any,
+      size: file.size,
+      mimetype: file.mimetype
+    });
+    await fileDoc.save();
+
+    // 2. Create Message record
+    const message = new Message({
+      personalChat: chatId,
+      sender: userId,
+      content: file.originalname,
+      type: isImage ? 'image' : 'file'
+    });
+    await message.save();
+
+    res.status(201).json({ message, file: fileDoc });
+  } catch (error) {
+    console.error('uploadFile error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
