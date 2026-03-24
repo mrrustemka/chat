@@ -5,9 +5,11 @@ export type RoomType = 'public' | 'private';
 export interface IRoom extends Document {
   name: string;
   description?: string;
-  type: RoomType;
+  visibility: RoomType;
   owner: mongoose.Types.ObjectId;
+  admins: mongoose.Types.ObjectId[];
   members: mongoose.Types.ObjectId[];
+  bannedUsers: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,7 +27,7 @@ const RoomSchema: Schema = new Schema({
     trim: true,
     maxlength: 500
   },
-  type: {
+  visibility: {
     type: String,
     enum: ['public', 'private'],
     default: 'public'
@@ -36,6 +38,14 @@ const RoomSchema: Schema = new Schema({
     required: true
   },
   members: [{
+    type: Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  admins: [{
+    type: Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  bannedUsers: [{
     type: Schema.Types.ObjectId,
     ref: 'User'
   }]

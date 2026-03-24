@@ -5,7 +5,7 @@ import { AuthRequest } from '../middleware/authMiddleware';
 // POST /rooms  { name, description?, type? }
 export const createRoom = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, description, type } = req.body;
+    const { name, description, visibility } = req.body;
     const userId = req.user!._id;
 
     if (!name?.trim()) return res.status(400).json({ message: 'Room name is required' });
@@ -16,9 +16,11 @@ export const createRoom = async (req: AuthRequest, res: Response) => {
     const room = new Room({
       name: name.trim(),
       description: description?.trim(),
-      type: type === 'private' ? 'private' : 'public',
+      visibility: visibility === 'private' ? 'private' : 'public',
       owner: userId,
-      members: [userId]
+      members: [userId],
+      admins: [userId],
+      bannedUsers: []
     });
     await room.save();
 
@@ -34,7 +36,7 @@ export const listRooms = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!._id;
     const rooms = await Room.find({
-      $or: [{ type: 'public' }, { members: userId }]
+      $or: [{ visibility: 'public' }, { members: userId }]
     })
       .populate('owner', 'username')
       .sort({ createdAt: -1 });
@@ -55,7 +57,7 @@ export const getRoom = async (req: AuthRequest, res: Response) => {
     if (!room) return res.status(404).json({ message: 'Room not found' });
 
     // Private rooms only accessible to members
-    if (room.type === 'private' && !room.members.some(m => m._id.toString() === userId.toString())) {
+    if (room.visibility === 'private' && !room.members.some(m => m._id.toString() === userId.toString())) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -92,9 +94,12 @@ export const joinRoom = async (req: AuthRequest, res: Response) => {
     const room = await Room.findById(req.params.id);
 
     if (!room) return res.status(404).json({ message: 'Room not found' });
-    if (room.type === 'private') return res.status(403).json({ message: 'Cannot join a private room directly' });
+    if (room.visibility === 'private') return res.status(403).json({ message: 'Cannot join a private room directly' });
     if (room.members.some(m => m.toString() === userId.toString())) {
       return res.status(400).json({ message: 'Already a member' });
+    }
+    if (room.bannedUsers.some(m => m.toString() === userId.toString())) {
+      return res.status(403).json({ message: 'You are banned from this room' });
     }
 
     room.members.push(userId);

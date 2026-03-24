@@ -13,9 +13,11 @@ interface Room {
   _id: string;
   name: string;
   description?: string;
-  type: RoomType;
+  visibility: RoomType;
   owner: RoomOwner;
+  admins: string[];
   members: string[];
+  bannedUsers: string[];
   createdAt: string;
 }
 
@@ -42,7 +44,7 @@ export const Rooms: React.FC = () => {
     setMessage('');
     setError('');
     try {
-      await api.post('/rooms', { name: nameInput, description: descInput, type: typeInput });
+      await api.post('/rooms', { name: nameInput, description: descInput, visibility: typeInput });
       setMessage(`Room "${nameInput}" created!`);
       setNameInput('');
       setDescInput('');
@@ -133,8 +135,8 @@ export const Rooms: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
                     <strong>{room.name}</strong>
-                    <span style={{ marginLeft: 8, fontSize: '0.78em', color: room.type === 'public' ? '#3b82f6' : '#8b5cf6', border: `1px solid ${room.type === 'public' ? '#3b82f6' : '#8b5cf6'}`, padding: '1px 6px', borderRadius: 10 }}>
-                      {room.type}
+                    <span style={{ marginLeft: 8, fontSize: '0.78em', color: room.visibility === 'public' ? '#3b82f6' : '#8b5cf6', border: `1px solid ${room.visibility === 'public' ? '#3b82f6' : '#8b5cf6'}`, padding: '1px 6px', borderRadius: 10 }}>
+                      {room.visibility}
                     </span>
                     {room.description && <p style={{ margin: '4px 0 2px', color: '#6b7280', fontSize: '0.9em' }}>{room.description}</p>}
                     <p style={{ margin: 0, fontSize: '0.8em', color: '#9ca3af' }}>
@@ -142,7 +144,7 @@ export const Rooms: React.FC = () => {
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12 }}>
-                    {!isMember(room) && room.type === 'public' && (
+                    {!isMember(room) && room.visibility === 'public' && (
                       <button onClick={() => handleJoin(room._id)} style={{ padding: '5px 12px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Join</button>
                     )}
                     {isMember(room) && !isOwner(room) && (
