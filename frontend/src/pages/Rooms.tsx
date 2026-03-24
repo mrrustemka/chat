@@ -28,6 +28,7 @@ export const Rooms: React.FC = () => {
   const [descInput, setDescInput] = useState('');
   const [typeInput, setTypeInput] = useState<RoomType>('public');
   const [searchInput, setSearchInput] = useState('');
+  const [inviteInputs, setInviteInputs] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -88,6 +89,20 @@ export const Rooms: React.FC = () => {
     }
   };
 
+  const handleInvite = async (id: string) => {
+    const username = inviteInputs[id];
+    if (!username?.trim()) return;
+    try {
+      await api.post(`/rooms/${id}/invite`, { username: username.trim() });
+      setMessage(`Invited ${username} to room!`);
+      setInviteInputs(prev => ({ ...prev, [id]: '' }));
+      fetchRooms(searchInput);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message || 'Failed to invite user');
+    }
+  };
+
   const isMember = (room: Room) => room.members.some(m => m === user?.id || (m as unknown as RoomOwner)?._id === user?.id);
   const isOwner = (room: Room) => room.owner._id === user?.id;
 
@@ -124,53 +139,94 @@ export const Rooms: React.FC = () => {
         </form>
       </div>
 
-      {/* Room List */}
-      <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ margin: 0 }}>Available Rooms ({rooms.length})</h3>
-          <input
-            placeholder="Search rooms..."
-            value={searchInput}
-            onChange={e => setSearchInput(e.target.value)}
-            style={{ padding: '6px 12px', borderRadius: 20, border: '1px solid #ccc', width: '40%' }}
-          />
+      {/* Room Lists */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
+        {/* My Rooms */}
+        <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
+          <h3 style={{ marginTop: 0 }}>My Rooms ({rooms.filter(isMember).length})</h3>
+          {rooms.filter(isMember).length === 0 ? (
+            <p style={{ color: '#6b7280' }}>You haven't joined any rooms yet.</p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {rooms.filter(isMember).map(room => (
+                <li key={room._id} style={{ padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <strong>{room.name}</strong>
+                      <span style={{ marginLeft: 8, fontSize: '0.78em', color: room.visibility === 'public' ? '#3b82f6' : '#8b5cf6', border: `1px solid ${room.visibility === 'public' ? '#3b82f6' : '#8b5cf6'}`, padding: '1px 6px', borderRadius: 10 }}>
+                        {room.visibility}
+                      </span>
+                      {room.description && <p style={{ margin: '4px 0 2px', color: '#6b7280', fontSize: '0.9em' }}>{room.description}</p>}
+                      <p style={{ margin: 0, fontSize: '0.8em', color: '#9ca3af' }}>
+                        Owner: {room.owner.username} · {room.members.length} member{room.members.length !== 1 ? 's' : ''}
+                      </p>
+                      
+                      {/* Invite section if owner/admin */}
+                      {(isOwner(room) || room.admins.includes(user?.id || '')) && (
+                        <div style={{ marginTop: 10, display: 'flex', gap: 5 }}>
+                          <input 
+                            placeholder="Invite username"
+                            value={inviteInputs[room._id] || ''}
+                            onChange={e => setInviteInputs(prev => ({ ...prev, [room._id]: e.target.value }))}
+                            style={{ padding: '4px 8px', fontSize: '0.85em', borderRadius: 4, border: '1px solid #ccc' }}
+                          />
+                          <button onClick={() => handleInvite(room._id)} style={{ padding: '4px 8px', fontSize: '0.85em', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                            Invite
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12 }}>
+                      {isOwner(room) ? (
+                        <button onClick={() => handleDelete(room._id)} style={{ padding: '5px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Delete</button>
+                      ) : (
+                        <button onClick={() => handleLeave(room._id)} style={{ padding: '5px 12px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Leave</button>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        {rooms.length === 0 ? (
-          <p style={{ color: '#6b7280' }}>No rooms yet. Create one above!</p>
-        ) : (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {rooms.map(room => (
-              <li key={room._id} style={{ padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <strong>{room.name}</strong>
-                    <span style={{ marginLeft: 8, fontSize: '0.78em', color: room.visibility === 'public' ? '#3b82f6' : '#8b5cf6', border: `1px solid ${room.visibility === 'public' ? '#3b82f6' : '#8b5cf6'}`, padding: '1px 6px', borderRadius: 10 }}>
-                      {room.visibility}
-                    </span>
-                    {room.description && <p style={{ margin: '4px 0 2px', color: '#6b7280', fontSize: '0.9em' }}>{room.description}</p>}
-                    <p style={{ margin: 0, fontSize: '0.8em', color: '#9ca3af' }}>
-                      Owner: {room.owner.username} · {room.members.length} member{room.members.length !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12 }}>
-                    {!isMember(room) && room.visibility === 'public' && (
+
+        {/* Public Catalog */}
+        <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ margin: 0 }}>Public Catalog ({rooms.filter(r => !isMember(r) && r.visibility === 'public').length})</h3>
+            <input
+              placeholder="Search public rooms..."
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              style={{ padding: '6px 12px', borderRadius: 20, border: '1px solid #ccc', width: '40%' }}
+            />
+          </div>
+          {rooms.filter(r => !isMember(r) && r.visibility === 'public').length === 0 ? (
+            <p style={{ color: '#6b7280' }}>No other public rooms found.</p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {rooms.filter(r => !isMember(r) && r.visibility === 'public').map(room => (
+                <li key={room._id} style={{ padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <strong>{room.name}</strong>
+                      <span style={{ marginLeft: 8, fontSize: '0.78em', color: '#3b82f6', border: '1px solid #3b82f6', padding: '1px 6px', borderRadius: 10 }}>
+                        public
+                      </span>
+                      {room.description && <p style={{ margin: '4px 0 2px', color: '#6b7280', fontSize: '0.9em' }}>{room.description}</p>}
+                      <p style={{ margin: 0, fontSize: '0.8em', color: '#9ca3af' }}>
+                        Owner: {room.owner.username} · {room.members.length} member{room.members.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12 }}>
                       <button onClick={() => handleJoin(room._id)} style={{ padding: '5px 12px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Join</button>
-                    )}
-                    {isMember(room) && !isOwner(room) && (
-                      <button onClick={() => handleLeave(room._id)} style={{ padding: '5px 12px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Leave</button>
-                    )}
-                    {isOwner(room) && (
-                      <button onClick={() => handleDelete(room._id)} style={{ padding: '5px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Delete</button>
-                    )}
-                    {isMember(room) && (
-                      <span style={{ padding: '5px 8px', color: '#6b7280', fontSize: '0.85em' }}>✓ Joined</span>
-                    )}
+                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );

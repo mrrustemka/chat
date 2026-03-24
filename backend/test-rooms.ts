@@ -104,6 +104,64 @@ async function runTests() {
     }
     console.log('✅ Room search verified');
 
+    console.log('\n7. Testing Private Rooms and Invitations...');
+    // Create User B
+    const emailB = `userB-${ts}@example.com`, usernameB = `userB${ts}`, pwB = 'password123';
+    await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailB, username: usernameB, password: pwB })
+    });
+    const loginResB = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailB, password: pwB })
+    });
+    const tokenB = (await loginResB.json() as any).token;
+    const headersB = { 'Authorization': `Bearer ${tokenB}`, 'Content-Type': 'application/json' };
+
+    // User A creates a private room
+    const privateRoomName = `PrivateRoom ${ts}`;
+    const createPrivRes = await fetch(`${API_URL}/rooms`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ name: privateRoomName, visibility: 'private' })
+    });
+    const privRoom = await createPrivRes.json() as any;
+    console.log(`- User A created private room: ${privateRoomName}`);
+
+    // User B checks catalog (should not see it)
+    const catalogB = await fetch(`${API_URL}/rooms`, { headers: headersB });
+    const catalogDataB = await catalogB.json() as any[];
+    if (catalogDataB.some(r => r.name === privateRoomName)) {
+      throw new Error('Private room should NOT be visible to non-members in catalog');
+    }
+    console.log('✅ Private room is invisible to non-members');
+
+    // User B tries to join (should fail)
+    const joinResB = await fetch(`${API_URL}/rooms/${privRoom._id}/join`, { method: 'POST', headers: headersB });
+    if (joinResB.status !== 403) {
+      throw new Error(`User B should be forbidden from joining private room directly, got ${joinResB.status}`);
+    }
+    console.log('✅ Direct join to private room correctly forbidden');
+
+    // User A invites User B
+    const inviteRes = await fetch(`${API_URL}/rooms/${privRoom._id}/invite`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ username: usernameB })
+    });
+    if (!inviteRes.ok) throw new Error(`Invitation failed: ${await inviteRes.text()}`);
+    console.log(`- User A invited User B`);
+
+    // User B checks catalog (should now see it)
+    const catalogB2 = await fetch(`${API_URL}/rooms`, { headers: headersB });
+    const catalogDataB2 = await catalogB2.json() as any[];
+    if (!catalogDataB2.some(r => r.name === privateRoomName)) {
+      throw new Error('Private room SHOULD be visible to member User B');
+    }
+    console.log('✅ Private room is now visible to invited member');
+
     console.log('\n🎉 ALL ROOM TESTS PASSED!');
   } catch (error: any) {
     console.error('❌ Test failed:', error.message);

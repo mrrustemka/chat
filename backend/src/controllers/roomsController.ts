@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import Room from '../models/Room';
+import User from '../models/User';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 // POST /rooms  { name, description?, type? }
@@ -141,6 +142,40 @@ export const leaveRoom = async (req: AuthRequest, res: Response) => {
     res.json({ message: 'Left room successfully' });
   } catch (error) {
     console.error('leaveRoom error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// POST /rooms/:id/invite  { username }
+export const inviteToRoom = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { username } = req.body;
+    const room = await Room.findById(req.params.id);
+
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+    
+    // Only owner or admins can invite
+    const isOwner = room.owner.toString() === userId.toString();
+    const isAdmin = room.admins.some(adminId => adminId.toString() === userId.toString());
+    
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ message: 'Only room owner or admins can invite users' });
+    }
+
+    const userToInvite = await User.findOne({ username: username.trim() });
+    if (!userToInvite) return res.status(404).json({ message: 'User not found' });
+
+    if (room.members.some(m => m.toString() === userToInvite._id.toString())) {
+      return res.status(400).json({ message: 'User is already a member' });
+    }
+
+    room.members.push(userToInvite._id as any);
+    await room.save();
+
+    res.json({ message: `User ${username} invited and added successfully` });
+  } catch (error) {
+    console.error('inviteToRoom error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
