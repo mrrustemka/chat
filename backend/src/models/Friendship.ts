@@ -6,6 +6,7 @@ export interface IFriendship extends Document {
   requester: mongoose.Types.ObjectId;
   recipient: mongoose.Types.ObjectId;
   status: FriendshipStatus;
+  message?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,6 +26,10 @@ const FriendshipSchema: Schema = new Schema({
     type: String,
     enum: ['pending', 'accepted', 'declined'],
     default: 'pending'
+  },
+  message: {
+    type: String,
+    trim: true
   }
 }, { timestamps: true });
 

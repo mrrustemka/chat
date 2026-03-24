@@ -57,6 +57,7 @@ export const listRooms = async (req: AuthRequest, res: Response) => {
 
     const rooms = await Room.find(query)
       .populate('owner', 'username')
+      .populate('members', 'username')
       .sort({ createdAt: -1 });
 
     res.json(rooms);

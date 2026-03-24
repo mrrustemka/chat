@@ -9,6 +9,11 @@ interface RoomOwner {
   username: string;
 }
 
+interface RoomMember {
+  _id: string;
+  username: string;
+}
+
 interface Room {
   _id: string;
   name: string;
@@ -16,7 +21,7 @@ interface Room {
   visibility: RoomType;
   owner: RoomOwner;
   admins: string[];
-  members: string[];
+  members: (string | RoomMember)[];
   bannedUsers: string[];
   createdAt: string;
 }
@@ -24,6 +29,7 @@ interface Room {
 export const Rooms: React.FC = () => {
   const { user } = useAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
+  // ... (keep other states)
   const [nameInput, setNameInput] = useState('');
   const [descInput, setDescInput] = useState('');
   const [typeInput, setTypeInput] = useState<RoomType>('public');
@@ -32,6 +38,18 @@ export const Rooms: React.FC = () => {
   const [banInputs, setBanInputs] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  const handleAddFriend = async (username: string) => {
+    const text = window.prompt(`Send friend request to ${username}? (Message optional):`);
+    if (text === null) return;
+    try {
+      await api.post('/friends/request', { username, message: text });
+      setMessage(`Friend request sent to ${username}`);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message || 'Failed to send friend request');
+    }
+  };
 
   const fetchRooms = useCallback(async (search = '') => {
     const res = await api.get(`/rooms${search ? `?search=${encodeURIComponent(search)}` : ''}`);

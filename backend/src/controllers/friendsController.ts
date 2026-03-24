@@ -7,7 +7,7 @@ import { AuthRequest } from '../middleware/authMiddleware';
 export const sendRequest = async (req: AuthRequest, res: Response) => {
   try {
     const requesterId = req.user!._id;
-    const { username } = req.body;
+    const { username, message } = req.body;
 
     if (!username) return res.status(400).json({ message: 'Username is required' });
 
@@ -37,7 +37,11 @@ export const sendRequest = async (req: AuthRequest, res: Response) => {
       return res.status(409).json({ message: `Friendship already exists with status: ${existing.status}` });
     }
 
-    const friendship = new Friendship({ requester: requesterId, recipient: recipient._id });
+    const friendship = new Friendship({ 
+      requester: requesterId, 
+      recipient: recipient._id,
+      message: message?.trim()
+    });
     await friendship.save();
 
     res.status(201).json({ message: 'Friend request sent', id: friendship._id });
@@ -151,6 +155,7 @@ export const listPending = async (req: AuthRequest, res: Response) => {
     res.json(pending.map(f => ({
       id: f._id,
       from: f.requester,
+      message: f.message,
       createdAt: f.createdAt
     })));
   } catch (error) {
