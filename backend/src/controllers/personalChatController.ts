@@ -68,6 +68,10 @@ export const listMessages = async (req: AuthRequest, res: Response) => {
 
     const messages = await Message.find({ personalChat: id })
       .populate('sender', 'username')
+      .populate({
+        path: 'replyTo',
+        populate: { path: 'sender', select: 'username' }
+      })
       .sort({ createdAt: 1 });
 
     res.json(messages);
@@ -183,6 +187,61 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
     res.status(201).json({ message, file: fileDoc });
   } catch (error) {
     console.error('uploadFile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// PATCH /personal-chats/:id/messages/:messageId
+export const editMessage = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { messageId } = req.params;
+    const { content } = req.body;
+
+    if (!content) return res.status(400).json({ message: 'Content is required' });
+
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ message: 'Message not found' });
+
+    if (message.sender.toString() !== userId.toString()) {
+      return res.status(403).json({ message: 'Only the sender can edit this message' });
+    }
+
+    if (message.isDeleted) {
+      return res.status(400).json({ message: 'Cannot edit a deleted message' });
+    }
+
+    message.content = content;
+    message.isEdited = true;
+    await message.save();
+
+    res.json(message);
+  } catch (error) {
+    console.error('editMessage error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// DELETE /personal-chats/:id/messages/:messageId
+export const deleteMessage = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { messageId } = req.params;
+
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ message: 'Message not found' });
+
+    if (message.sender.toString() !== userId.toString()) {
+      return res.status(403).json({ message: 'Only the sender can delete this message' });
+    }
+
+    message.isDeleted = true;
+    message.content = '[This message was deleted]';
+    await message.save();
+
+    res.json({ message: 'Message deleted' });
+  } catch (error) {
+    console.error('deleteMessage error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

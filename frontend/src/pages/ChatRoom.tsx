@@ -18,13 +18,17 @@ interface Message {
       username: string;
     };
   };
+  isEdited?: boolean;
+  isDeleted?: boolean;
   createdAt: string;
 }
 
 interface Room {
   _id: string;
   name: string;
+  owner: string | { _id: string; username: string };
   members: { _id: string; username: string }[];
+  admins: string[];
 }
 
 export const ChatRoom: React.FC = () => {
@@ -34,6 +38,7 @@ export const ChatRoom: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [error, setError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -78,16 +83,39 @@ export const ChatRoom: React.FC = () => {
     }
 
     try {
-      await api.post(`/rooms/${id}/messages`, {
-        content: inputText.trim(),
-        replyTo: replyTarget?._id
-      });
+      if (editingMessage) {
+        await api.patch(`/rooms/${id}/messages/${editingMessage._id}`, {
+          content: inputText.trim()
+        });
+        setEditingMessage(null);
+      } else {
+        await api.post(`/rooms/${id}/messages`, {
+          content: inputText.trim(),
+          replyTo: replyTarget?._id
+        });
+      }
       setInputText('');
       setReplyTarget(null);
       fetchMessages();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to send message');
     }
+  };
+
+  const handleDelete = async (messageId: string) => {
+    if (!window.confirm('Delete this message?')) return;
+    try {
+      await api.delete(`/rooms/${id}/messages/${messageId}`);
+      fetchMessages();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete message');
+    }
+  };
+
+  const handleStartEdit = (msg: Message) => {
+    setEditingMessage(msg);
+    setInputText(msg.content);
+    setReplyTarget(null);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,12 +223,21 @@ export const ChatRoom: React.FC = () => {
                         </a>
                       </div>
                     ) : (
-                      <div style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', fontSize: '0.93rem' }}>{msg.content}</div>
+                      <div style={{ 
+                        wordBreak: 'break-word', 
+                        whiteSpace: 'pre-wrap', 
+                        fontSize: '0.93rem',
+                        fontStyle: msg.isDeleted ? 'italic' : 'normal',
+                        opacity: msg.isDeleted ? 0.6 : 1
+                      }}>
+                        {msg.content}
+                      </div>
                     )}
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2, fontSize: '0.65rem' }}>
                       <span style={{ opacity: 0.7 }}>
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {msg.isEdited && !msg.isDeleted && <span style={{ marginLeft: 4, fontStyle: 'italic' }}>(edited)</span>}
                       </span>
                       <button
                         onClick={() => setReplyTarget(msg)}
@@ -208,6 +245,28 @@ export const ChatRoom: React.FC = () => {
                       >
                         Reply
                       </button>
+                      
+                      {!msg.isDeleted && msg.sender._id === user?.id && (
+                        <button
+                          onClick={() => handleStartEdit(msg)}
+                          style={{ background: 'none', border: 'none', color: 'inherit', padding: '0 4px', cursor: 'pointer', opacity: 0.6, fontSize: '0.75rem' }}
+                        >
+                          Edit
+                        </button>
+                      )}
+
+                      {!msg.isDeleted && (
+                        msg.sender._id === user?.id || 
+                        room.admins?.includes(user?.id || '') || 
+                        (typeof room.owner === 'object' ? room.owner._id === user?.id : room.owner === user?.id)
+                      ) && (
+                        <button
+                          onClick={() => handleDelete(msg._id)}
+                          style={{ background: 'none', border: 'none', color: 'inherit', padding: '0 4px', cursor: 'pointer', opacity: 0.6, fontSize: '0.75rem' }}
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -223,6 +282,16 @@ export const ChatRoom: React.FC = () => {
                 Replying to <strong>{replyTarget.sender.username}</strong>: {replyTarget.content}
               </div>
               <button onClick={() => setReplyTarget(null)} style={{ background: 'none', border: 'none', color: '#f02849', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+            </div>
+          )}
+
+          {/* Edit Preview */}
+          {editingMessage && (
+            <div style={{ padding: '8px 20px', background: '#fff9e6', borderTop: '1px solid #ddd', borderLeft: '4px solid #f0ad4e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: '0.85rem', color: '#856404', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                Editing your message: {editingMessage.content}
+              </div>
+              <button onClick={() => { setEditingMessage(null); setInputText(''); }} style={{ background: 'none', border: 'none', color: '#f02849', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
             </div>
           )}
 
@@ -253,7 +322,7 @@ export const ChatRoom: React.FC = () => {
                     handleSend(e as any);
                   }
                 }}
-                placeholder={isUploading ? "Uploading..." : ""}
+                placeholder={isUploading ? "Uploading..." : "Type a message..."}
                 disabled={isUploading}
                 style={{
                   flex: 1,

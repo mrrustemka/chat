@@ -6,7 +6,9 @@ import {
   listChats,
   listMessages,
   sendMessage,
-  uploadFile
+  uploadFile,
+  editMessage,
+  deleteMessage
 } from '../controllers/personalChatController';
 
 const router = express.Router();
@@ -18,5 +20,7 @@ router.get('/', listChats as express.RequestHandler);
 router.get('/:id/messages', listMessages as express.RequestHandler);
 router.post('/:id/messages', sendMessage as express.RequestHandler);
 router.post('/:id/upload', upload.single('file'), uploadFile as express.RequestHandler);
+router.patch('/:id/messages/:messageId', editMessage as express.RequestHandler);
+router.delete('/:id/messages/:messageId', deleteMessage as express.RequestHandler);
 
 export default router;

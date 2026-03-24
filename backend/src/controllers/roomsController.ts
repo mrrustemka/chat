@@ -381,10 +381,49 @@ export const deleteMessage = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: 'Not authorized to delete this message' });
     }
 
-    await Message.findByIdAndDelete(messageId);
+    message.isDeleted = true;
+    message.content = '[This message was deleted]';
+    await message.save();
+    
     res.json({ message: 'Message deleted' });
   } catch (error) {
     console.error('deleteMessage error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// PATCH /rooms/:id/messages/:messageId
+export const editMessage = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { id: roomId, messageId } = req.params;
+    const { content } = req.body;
+
+    if (!content) return res.status(400).json({ message: 'Content is required' });
+    
+    // Max 3 KB
+    if (Buffer.byteLength(content, 'utf8') > 3072) {
+      return res.status(400).json({ message: 'Message exceeds 3 KB size limit' });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ message: 'Message not found' });
+
+    if (message.sender.toString() !== userId.toString()) {
+      return res.status(403).json({ message: 'Only the sender can edit this message' });
+    }
+
+    if (message.isDeleted) {
+      return res.status(400).json({ message: 'Cannot edit a deleted message' });
+    }
+
+    message.content = content;
+    message.isEdited = true;
+    await message.save();
+
+    res.json(message);
+  } catch (error) {
+    console.error('editMessage error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -407,7 +446,12 @@ export const listMessages = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: 'You are banned from this room' });
     }
 
-    const messages = await Message.find({ room: req.params.id }).populate('sender', 'username');
+    const messages = await Message.find({ room: req.params.id })
+      .populate('sender', 'username')
+      .populate({
+        path: 'replyTo',
+        populate: { path: 'sender', select: 'username' }
+      });
     res.json(messages);
   } catch (error) {
     console.error('listMessages error:', error);
