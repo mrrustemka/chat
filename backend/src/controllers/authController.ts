@@ -2,6 +2,11 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
+import Room from '../models/Room';
+import Message from '../models/Message';
+import File from '../models/File';
+import PersonalChat from '../models/PersonalChat';
+import Friendship from '../models/Friendship';
 import Session from '../models/Session';
 import { JWT_SECRET, AuthRequest } from '../middleware/authMiddleware';
 
@@ -223,5 +228,54 @@ export const logoutSession = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Logout session error:', error);
     res.status(500).json({ message: 'Server error during session logout' });
+  }
+};
+export const deleteAccount = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    // 1. Find and delete owned rooms and their content
+    const ownedRooms = await Room.find({ owner: userId });
+    for (const room of ownedRooms) {
+      await Message.deleteMany({ room: room._id });
+      await File.deleteMany({ room: room._id });
+      await Room.findByIdAndDelete(room._id);
+    }
+
+    // 2. Remove from members/admins/bans in other rooms
+    await Room.updateMany(
+      {},
+      { 
+        $pull: { 
+          members: userId, 
+          admins: userId,
+          bannedUsers: { user: userId }
+        }
+      }
+    );
+
+    // 3. Cleanup Friendships
+    await Friendship.deleteMany({
+      $or: [{ user1: userId }, { user2: userId }]
+    });
+
+    // 4. Cleanup Personal Chats
+    const personalChats = await PersonalChat.find({ participants: userId });
+    for (const chat of personalChats) {
+      await Message.deleteMany({ personalChat: chat._id });
+      await PersonalChat.findByIdAndDelete(chat._id);
+    }
+
+    // 5. Delete Sessions
+    await Session.deleteMany({ userId });
+
+    // 6. Delete User
+    await User.findByIdAndDelete(userId);
+
+    res.json({ message: 'Account and associated data deleted successfully' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ message: 'Server error during account deletion' });
   }
 };

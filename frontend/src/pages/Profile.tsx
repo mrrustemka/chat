@@ -71,6 +71,25 @@ export const Profile: React.FC = () => {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    const confirmation = window.confirm(
+      'Are you sure you want to delete your account? This action is permanent and will delete all your owned rooms, messages, and files.'
+    );
+    if (!confirmation) return;
+
+    const secondConfirmation = window.prompt('Type "DELETE" to confirm account deletion:');
+    if (secondConfirmation !== 'DELETE') return;
+
+    try {
+      await api.delete('/auth/account');
+      alert('Your account has been deleted.');
+      logout();
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      alert(error.response?.data?.message || 'Failed to delete account');
+    }
+  };
+
   return (
     <div style={{ maxWidth: 600, margin: '50px auto', padding: 20 }}>
       <h2>Profile Overview</h2>
@@ -133,9 +152,15 @@ export const Profile: React.FC = () => {
         )}
       </div>
 
-      <button onClick={logout} style={{ padding: '10px 20px', cursor: 'pointer', backgroundColor: 'red', color: 'white', border: 'none' }}>
-        Logout
-      </button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 30 }}>
+        <button onClick={logout} style={{ padding: '10px 20px', cursor: 'pointer', backgroundColor: '#eee', color: '#333', border: '1px solid #ccc', borderRadius: 4 }}>
+          Logout
+        </button>
+
+        <button onClick={handleDeleteAccount} style={{ padding: '10px 20px', cursor: 'pointer', backgroundColor: '#f02849', color: 'white', border: 'none', borderRadius: 4, fontWeight: 600 }}>
+          Delete Account
+        </button>
+      </div>
     </div>
   );
 };

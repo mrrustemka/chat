@@ -7,7 +7,8 @@ import {
   resetPassword,
   resetPasswordConfirm,
   getSessions,
-  logoutSession
+  logoutSession,
+  deleteAccount
 } from '../controllers/authController';
 import { authenticate, AuthRequest } from '../middleware/authMiddleware';
 
@@ -22,6 +23,7 @@ router.post('/reset-password-confirm', resetPasswordConfirm);
 
 router.get('/sessions', authenticate as express.RequestHandler, getSessions as express.RequestHandler);
 router.delete('/sessions/:id', authenticate as express.RequestHandler, logoutSession as express.RequestHandler);
+router.delete('/account', authenticate as express.RequestHandler, deleteAccount as express.RequestHandler);
 
 // Simple route to check if token is valid and return current user
 router.get('/me', authenticate as express.RequestHandler, (req: express.Request, res) => {
