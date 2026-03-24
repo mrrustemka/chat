@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import mongoose from 'mongoose';
 import Room from '../models/Room';
 import User from '../models/User';
 import Message from '../models/Message';
@@ -285,9 +286,18 @@ export const removeMember = async (req: AuthRequest, res: Response) => {
 
     room.members = room.members.filter(m => m.toString() !== targetUserId);
     room.admins = room.admins.filter(a => a.toString() !== targetUserId);
-    await room.save();
+    
+    // Treat removal as a ban
+    if (!room.bannedUsers.some(b => b.user.toString() === targetUserId)) {
+      room.bannedUsers.push({
+        user: new mongoose.Types.ObjectId(targetUserId),
+        bannedBy: userId,
+        bannedAt: new Date()
+      });
+    }
 
-    res.json({ message: 'Member removed' });
+    await room.save();
+    res.json({ message: 'Member removed and banned from room' });
   } catch (error) {
     console.error('removeMember error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -374,6 +384,32 @@ export const deleteMessage = async (req: AuthRequest, res: Response) => {
     res.json({ message: 'Message deleted' });
   } catch (error) {
     console.error('deleteMessage error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// GET /rooms/:id/messages
+export const listMessages = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const room = await Room.findById(req.params.id);
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+
+    const isMember = room.members.some(m => m.toString() === userId.toString());
+    const isBanned = room.bannedUsers.some(b => b.user.toString() === userId.toString());
+
+    // Permission check
+    if (room.visibility === 'private' && !isMember) {
+      return res.status(403).json({ message: 'Access denied to private room' });
+    }
+    if (isBanned) {
+      return res.status(403).json({ message: 'You are banned from this room' });
+    }
+
+    const messages = await Message.find({ room: req.params.id }).populate('sender', 'username');
+    res.json(messages);
+  } catch (error) {
+    console.error('listMessages error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

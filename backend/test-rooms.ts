@@ -275,7 +275,9 @@ async function runTests() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: emailC, password: pwC })
     });
-    const tokenC = (await loginResC.json() as any).token;
+    const loginDataC = await loginResC.json() as any;
+    const tokenC = loginDataC.token;
+    const userC_Id = loginDataC.user.id;
     const headersC = { 'Authorization': `Bearer ${tokenC}`, 'Content-Type': 'application/json' };
 
     // User C joins the public room
@@ -332,6 +334,29 @@ async function runTests() {
     });
     if (!delMsgRes.ok) throw new Error(`Admin failed to delete owner's message: ${await delMsgRes.text()}`);
     console.log('✅ Admin successfully deleted owner\'s message');
+
+    console.log('\n12. Testing Removal as Ban and Access Control...');
+    // Owner (User A) removes Admin (User C) - should ban them
+    const removeRes = await fetch(`${API_URL}/rooms/${publicRoomId}/members/${userC_Id}`, {
+      method: 'DELETE',
+      headers
+    });
+    if (!removeRes.ok) throw new Error(`Failed to remove member: ${await removeRes.text()}`);
+    console.log('✅ Owner removed and banned User C');
+
+    // User C tries to join again (should fail)
+    const rejoinResC = await fetch(`${API_URL}/rooms/${publicRoomId}/join`, { method: 'POST', headers: headersC });
+    if (rejoinResC.status !== 403) {
+      throw new Error(`Kicked user should be banned and unable to rejoin, got ${rejoinResC.status}`);
+    }
+    console.log('✅ Kicked user correctly blocked from re-joining (treated as ban)');
+
+    // User C tries to list messages (should fail)
+    const listMsgResC = await fetch(`${API_URL}/rooms/${publicRoomId}/messages`, { headers: headersC });
+    if (listMsgResC.status !== 403) {
+      throw new Error(`Banned user should be unable to list messages, got ${listMsgResC.status}`);
+    }
+    console.log('✅ Banned user correctly denied access to messages');
 
     console.log('\n🎉 ALL ROOM TESTS PASSED!');
     await mongoose.disconnect();
