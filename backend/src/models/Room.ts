@@ -9,7 +9,11 @@ export interface IRoom extends Document {
   owner: mongoose.Types.ObjectId;
   admins: mongoose.Types.ObjectId[];
   members: mongoose.Types.ObjectId[];
-  bannedUsers: mongoose.Types.ObjectId[];
+  bannedUsers: {
+    user: mongoose.Types.ObjectId;
+    bannedBy: mongoose.Types.ObjectId;
+    bannedAt: Date;
+  }[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -46,8 +50,9 @@ const RoomSchema: Schema = new Schema({
     ref: 'User'
   }],
   bannedUsers: [{
-    type: Schema.Types.ObjectId,
-    ref: 'User'
+    user: { type: Schema.Types.ObjectId, ref: 'User' },
+    bannedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    bannedAt: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });
 

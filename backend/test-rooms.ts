@@ -262,6 +262,77 @@ async function runTests() {
     
     console.log('✅ All messages and files correctly deleted with the room');
 
+    console.log('\n11. Testing Administrative Roles and Permissions...');
+    // Create User C (to be promoted to admin)
+    const emailC = `userC-${ts}@example.com`, usernameC = `userC${ts}`, pwC = 'password123';
+    await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailC, username: usernameC, password: pwC })
+    });
+    const loginResC = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailC, password: pwC })
+    });
+    const tokenC = (await loginResC.json() as any).token;
+    const headersC = { 'Authorization': `Bearer ${tokenC}`, 'Content-Type': 'application/json' };
+
+    // User C joins the public room
+    await fetch(`${API_URL}/rooms/${publicRoomId}/join`, { method: 'POST', headers: headersC });
+    console.log('- User C joined public room');
+
+    // Owner (User A) makes User C an admin
+    const promoteRes = await fetch(`${API_URL}/rooms/${publicRoomId}/admins`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ username: usernameC })
+    });
+    if (!promoteRes.ok) throw new Error(`Promotion failed: ${await promoteRes.text()}`);
+    console.log('✅ Owner promoted User C to admin');
+
+    // Admin (User C) bans User B from this room (should work)
+    const banRes2 = await fetch(`${API_URL}/rooms/${publicRoomId}/ban`, {
+      method: 'POST',
+      headers: headersC,
+      body: JSON.stringify({ username: usernameB })
+    });
+    if (!banRes2.ok) throw new Error(`Admin failed to ban user: ${await banRes2.text()}`);
+    console.log('✅ Admin (User C) successfully banned User B');
+
+    // Admin (User C) tries to remove Owner (User A) from admins (should fail)
+    const loginResA = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const userA_Id = (await loginResA.json() as any).user.id;
+
+    const demoteOwnerRes = await fetch(`${API_URL}/rooms/${publicRoomId}/admins/${userA_Id}`, {
+      method: 'DELETE',
+      headers: headersC
+    });
+    if (demoteOwnerRes.status !== 403) {
+      throw new Error(`Admin should be forbidden from demoting owner, got ${demoteOwnerRes.status}`);
+    }
+    console.log('✅ Admin correctly prevented from demoting owner');
+
+    // Message Deletion Permissions
+    const msg = await Message.create({
+      room: publicRoomId,
+      sender: userId, // User A (Owner)
+      content: 'Hello from owner',
+      type: 'text'
+    });
+    
+    // Admin (User C) deletes Owner's message (should work)
+    const delMsgRes = await fetch(`${API_URL}/rooms/${publicRoomId}/messages/${msg._id}`, {
+      method: 'DELETE',
+      headers: headersC
+    });
+    if (!delMsgRes.ok) throw new Error(`Admin failed to delete owner's message: ${await delMsgRes.text()}`);
+    console.log('✅ Admin successfully deleted owner\'s message');
+
     console.log('\n🎉 ALL ROOM TESTS PASSED!');
     await mongoose.disconnect();
   } catch (error: any) {

@@ -115,11 +115,13 @@ export const joinRoom = async (req: AuthRequest, res: Response) => {
     const room = await Room.findById(req.params.id);
 
     if (!room) return res.status(404).json({ message: 'Room not found' });
-    if (room.visibility === 'private') return res.status(403).json({ message: 'Cannot join a private room directly' });
+    if (room.visibility === 'private' && !room.members.some(m => m.toString() === userId.toString())) {
+      return res.status(403).json({ message: 'Cannot join a private room directly' });
+    }
     if (room.members.some(m => m.toString() === userId.toString())) {
       return res.status(400).json({ message: 'Already a member' });
     }
-    if (room.bannedUsers.some(m => m.toString() === userId.toString())) {
+    if (room.bannedUsers.some(b => b.user.toString() === userId.toString())) {
       return res.status(403).json({ message: 'You are banned from this room' });
     }
 
@@ -216,8 +218,12 @@ export const banUser = async (req: AuthRequest, res: Response) => {
     room.admins = room.admins.filter(a => a.toString() !== userToBan._id.toString());
     
     // Add to banned list
-    if (!room.bannedUsers.some(b => b.toString() === userToBan._id.toString())) {
-      room.bannedUsers.push(userToBan._id as any);
+    if (!room.bannedUsers.some(b => b.user.toString() === userToBan._id.toString())) {
+      room.bannedUsers.push({
+        user: userToBan._id as any,
+        bannedBy: userId,
+        bannedAt: new Date()
+      });
     }
 
     await room.save();
@@ -248,12 +254,126 @@ export const unbanUser = async (req: AuthRequest, res: Response) => {
     const userToUnban = await User.findOne({ username: username.trim() });
     if (!userToUnban) return res.status(404).json({ message: 'User not found' });
 
-    room.bannedUsers = room.bannedUsers.filter(b => b.toString() !== userToUnban._id.toString());
+    room.bannedUsers = room.bannedUsers.filter(b => b.user.toString() !== userToUnban._id.toString());
     await room.save();
 
     res.json({ message: `User ${username} unbanned successfully` });
   } catch (error) {
     console.error('unbanUser error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const removeMember = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const targetUserId = req.params.userId;
+    const room = await Room.findById(req.params.id);
+
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+
+    const isOwner = room.owner.toString() === userId.toString();
+    const isAdmin = room.admins.some(a => a.toString() === userId.toString());
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ message: 'Only admins can remove members' });
+    }
+
+    if (room.owner.toString() === targetUserId) {
+      return res.status(400).json({ message: 'Cannot remove the room owner' });
+    }
+
+    room.members = room.members.filter(m => m.toString() !== targetUserId);
+    room.admins = room.admins.filter(a => a.toString() !== targetUserId);
+    await room.save();
+
+    res.json({ message: 'Member removed' });
+  } catch (error) {
+    console.error('removeMember error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const addAdmin = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { username } = req.body;
+    const room = await Room.findById(req.params.id);
+
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+
+    if (room.owner.toString() !== userId.toString()) {
+      return res.status(403).json({ message: 'Only the owner can add admins' });
+    }
+
+    const userToPromote = await User.findOne({ username: username.trim() });
+    if (!userToPromote) return res.status(404).json({ message: 'User not found' });
+
+    if (!room.members.some(m => m.toString() === userToPromote._id.toString())) {
+      return res.status(400).json({ message: 'User must be a member first' });
+    }
+
+    if (!room.admins.some(a => a.toString() === userToPromote._id.toString())) {
+      room.admins.push(userToPromote._id as any);
+      await room.save();
+    }
+
+    res.json({ message: `User ${username} is now an admin` });
+  } catch (error) {
+    console.error('addAdmin error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const removeAdmin = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const targetAdminId = req.params.adminId;
+    const room = await Room.findById(req.params.id);
+
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+
+    if (room.owner.toString() !== userId.toString()) {
+      return res.status(403).json({ message: 'Only the owner can remove admins' });
+    }
+
+    if (room.owner.toString() === targetAdminId) {
+      return res.status(400).json({ message: 'Cannot remove admin status from the owner' });
+    }
+
+    room.admins = room.admins.filter(a => a.toString() !== targetAdminId);
+    await room.save();
+
+    res.json({ message: 'Admin status removed' });
+  } catch (error) {
+    console.error('removeAdmin error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const deleteMessage = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { id: roomId, messageId } = req.params;
+    
+    const room = await Room.findById(roomId);
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ message: 'Message not found' });
+
+    const isOwner = room.owner.toString() === userId.toString();
+    const isAdmin = room.admins.some(a => a.toString() === userId.toString());
+    const isSender = message.sender.toString() === userId.toString();
+
+    if (!isOwner && !isAdmin && !isSender) {
+      return res.status(403).json({ message: 'Not authorized to delete this message' });
+    }
+
+    await Message.findByIdAndDelete(messageId);
+    res.json({ message: 'Message deleted' });
+  } catch (error) {
+    console.error('deleteMessage error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
