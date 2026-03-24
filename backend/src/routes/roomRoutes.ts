@@ -1,6 +1,6 @@
 import express from 'express';
 import { authenticate } from '../middleware/authMiddleware';
-import { createRoom, listRooms, getRoom, deleteRoom, joinRoom, leaveRoom, inviteToRoom } from '../controllers/roomsController';
+import { createRoom, listRooms, getRoom, deleteRoom, joinRoom, leaveRoom, inviteToRoom, banUser, unbanUser } from '../controllers/roomsController';
 
 const router = express.Router();
 
@@ -11,5 +11,7 @@ router.delete('/:id', authenticate as express.RequestHandler, deleteRoom as expr
 router.post('/:id/join', authenticate as express.RequestHandler, joinRoom as express.RequestHandler);
 router.post('/:id/leave', authenticate as express.RequestHandler, leaveRoom as express.RequestHandler);
 router.post('/:id/invite', authenticate as express.RequestHandler, inviteToRoom as express.RequestHandler);
+router.post('/:id/ban', authenticate as express.RequestHandler, banUser as express.RequestHandler);
+router.post('/:id/unban', authenticate as express.RequestHandler, unbanUser as express.RequestHandler);
 
 export default router;

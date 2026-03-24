@@ -29,6 +29,7 @@ export const Rooms: React.FC = () => {
   const [typeInput, setTypeInput] = useState<RoomType>('public');
   const [searchInput, setSearchInput] = useState('');
   const [inviteInputs, setInviteInputs] = useState<Record<string, string>>({});
+  const [banInputs, setBanInputs] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -75,6 +76,31 @@ export const Rooms: React.FC = () => {
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setError(e.response?.data?.message || 'Failed to leave room');
+    }
+  };
+
+  const handleBan = async (id: string) => {
+    const username = banInputs[id];
+    if (!username?.trim()) return;
+    try {
+      await api.post(`/rooms/${id}/ban`, { username: username.trim() });
+      setMessage(`User ${username} banned!`);
+      setBanInputs(prev => ({ ...prev, [id]: '' }));
+      fetchRooms(searchInput);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message || 'Failed to ban user');
+    }
+  };
+
+  const handleUnban = async (id: string, username: string) => {
+    try {
+      await api.post(`/rooms/${id}/unban`, { username });
+      setMessage(`User ${username} unbanned!`);
+      fetchRooms(searchInput);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message || 'Failed to unban user');
     }
   };
 
@@ -173,6 +199,30 @@ export const Rooms: React.FC = () => {
                           <button onClick={() => handleInvite(room._id)} style={{ padding: '4px 8px', fontSize: '0.85em', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
                             Invite
                           </button>
+                        </div>
+                      )}
+
+                      {/* Ban section if owner/admin */}
+                      {(isOwner(room) || room.admins.includes(user?.id || '')) && (
+                        <div style={{ marginTop: 8, display: 'flex', gap: 5 }}>
+                          <input 
+                            placeholder="Ban username"
+                            value={banInputs[room._id] || ''}
+                            onChange={e => setBanInputs(prev => ({ ...prev, [room._id]: e.target.value }))}
+                            style={{ padding: '4px 8px', fontSize: '0.85em', borderRadius: 4, border: '1px solid #ccc' }}
+                          />
+                          <button onClick={() => handleBan(room._id)} style={{ padding: '4px 8px', fontSize: '0.85em', background: '#374151', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                            Ban
+                          </button>
+                        </div>
+                      )}
+                      
+                      {/* Banned Users list (if any) */}
+                      {(isOwner(room) || room.admins.includes(user?.id || '')) && room.bannedUsers.length > 0 && (
+                        <div style={{ marginTop: 8, fontSize: '0.8em', color: '#ef4444' }}>
+                          <strong>Banned:</strong> {room.bannedUsers.length} user(s). 
+                          {/* Note: username lookup for bannedUsers would require population or another call, 
+                              for now just showing count or placeholder. Simple unban would need the username. */}
                         </div>
                       )}
                     </div>

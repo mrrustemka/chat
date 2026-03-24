@@ -179,3 +179,75 @@ export const inviteToRoom = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// POST /rooms/:id/ban  { username }
+export const banUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { username } = req.body;
+    const room = await Room.findById(req.params.id);
+
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+
+    // Only owner or admins can ban
+    const isOwner = room.owner.toString() === userId.toString();
+    const isAdmin = room.admins.some(adminId => adminId.toString() === userId.toString());
+    
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ message: 'Only room owner or admins can ban users' });
+    }
+
+    const userToBan = await User.findOne({ username: username.trim() });
+    if (!userToBan) return res.status(404).json({ message: 'User not found' });
+
+    // Owner cannot be banned
+    if (room.owner.toString() === userToBan._id.toString()) {
+      return res.status(400).json({ message: 'The room owner cannot be banned' });
+    }
+
+    // Remove from members and admins
+    room.members = room.members.filter(m => m.toString() !== userToBan._id.toString());
+    room.admins = room.admins.filter(a => a.toString() !== userToBan._id.toString());
+    
+    // Add to banned list
+    if (!room.bannedUsers.some(b => b.toString() === userToBan._id.toString())) {
+      room.bannedUsers.push(userToBan._id as any);
+    }
+
+    await room.save();
+    res.json({ message: `User ${username} banned successfully` });
+  } catch (error) {
+    console.error('banUser error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// POST /rooms/:id/unban  { username }
+export const unbanUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { username } = req.body;
+    const room = await Room.findById(req.params.id);
+
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+
+    // Only owner or admins can unban
+    const isOwner = room.owner.toString() === userId.toString();
+    const isAdmin = room.admins.some(adminId => adminId.toString() === userId.toString());
+    
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ message: 'Only room owner or admins can unban users' });
+    }
+
+    const userToUnban = await User.findOne({ username: username.trim() });
+    if (!userToUnban) return res.status(404).json({ message: 'User not found' });
+
+    room.bannedUsers = room.bannedUsers.filter(b => b.toString() !== userToUnban._id.toString());
+    await room.save();
+
+    res.json({ message: `User ${username} unbanned successfully` });
+  } catch (error) {
+    console.error('unbanUser error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

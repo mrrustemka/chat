@@ -162,6 +162,56 @@ async function runTests() {
     }
     console.log('✅ Private room is now visible to invited member');
 
+    console.log('\n8. Testing Leaving Rooms...');
+    // User B leaves
+    const leaveResB = await fetch(`${API_URL}/rooms/${privRoom._id}/leave`, { method: 'POST', headers: headersB });
+    if (!leaveResB.ok) throw new Error(`User B failed to leave room: ${await leaveResB.text()}`);
+    console.log('✅ User B left successfully');
+
+    // User A (owner) tries to leave (should fail)
+    const leaveResA = await fetch(`${API_URL}/rooms/${privRoom._id}/leave`, { method: 'POST', headers });
+    if (leaveResA.status !== 400) {
+      throw new Error(`Owner should be forbidden from leaving, got ${leaveResA.status}`);
+    }
+    console.log('✅ Owner correctly prevented from leaving');
+
+    console.log('\n9. Testing Banning Logic...');
+    // User A bans User B
+    const banRes = await fetch(`${API_URL}/rooms/${privRoom._id}/ban`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ username: usernameB })
+    });
+    if (!banRes.ok) throw new Error(`Banning failed: ${await banRes.text()}`);
+    console.log(`✅ User A banned User B`);
+
+    // User B tries to join public room while banned
+    // (We need a public room for this, let's use the one from test 3)
+    const publicRoomId = room._id;
+    await fetch(`${API_URL}/rooms/${publicRoomId}/ban`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ username: usernameB })
+    });
+    console.log(`- User B banned from public room ${room.name}`);
+
+    const joinResB2 = await fetch(`${API_URL}/rooms/${publicRoomId}/join`, { method: 'POST', headers: headersB });
+    if (joinResB2.status !== 403) {
+      throw new Error(`Banned user should be forbidden from joining public room, got ${joinResB2.status}`);
+    }
+    console.log('✅ Banned user correctly blocked from joining public room');
+
+    // User A tries to ban themselves (should fail)
+    const banSelfRes = await fetch(`${API_URL}/rooms/${privRoom._id}/ban`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ username: username })
+    });
+    if (banSelfRes.status !== 400) {
+      throw new Error(`Owner should not be able to ban themselves, got ${banSelfRes.status}`);
+    }
+    console.log('✅ Owner correctly prevented from banning themselves');
+
     console.log('\n🎉 ALL ROOM TESTS PASSED!');
   } catch (error: any) {
     console.error('❌ Test failed:', error.message);
