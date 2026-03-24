@@ -66,13 +66,22 @@ export const listMessages = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    const messages = await Message.find({ personalChat: id })
+    const limit = parseInt(req.query.limit as string) || 50;
+    const before = req.query.before as string;
+
+    const query: any = { personalChat: id };
+    if (before) {
+      query.createdAt = { $lt: new Date(before) };
+    }
+
+    const messages = await Message.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit)
       .populate('sender', 'username')
       .populate({
         path: 'replyTo',
         populate: { path: 'sender', select: 'username' }
-      })
-      .sort({ createdAt: 1 });
+      });
 
     res.json(messages);
   } catch (error) {

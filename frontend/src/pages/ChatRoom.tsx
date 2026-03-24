@@ -41,8 +41,12 @@ export const ChatRoom: React.FC = () => {
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [error, setError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isInitialLoad = useRef(true);
 
   const fetchRoom = useCallback(async () => {
     try {
@@ -53,12 +57,58 @@ export const ChatRoom: React.FC = () => {
     }
   }, [id]);
 
-  const fetchMessages = useCallback(async () => {
+  const fetchMessages = useCallback(async (before?: string) => {
+    if (before) setIsLoadingMore(true);
     try {
-      const res = await api.get(`/rooms/${id}/messages`);
-      setMessages(res.data);
+      const res = await api.get(`/rooms/${id}/messages`, {
+        params: { before, limit: 50 }
+      });
+      const fetched = res.data.reverse() as Message[]; // Chronological order
+
+      if (before) {
+        if (fetched.length < 50) setHasMore(false);
+        
+        // Save scroll position
+        const container = scrollContainerRef.current;
+        const oldScrollHeight = container?.scrollHeight || 0;
+
+        setMessages(prev => [...fetched, ...prev]);
+
+        // Restore scroll position after render
+        setTimeout(() => {
+          if (container) {
+            container.scrollTop = container.scrollHeight - oldScrollHeight;
+          }
+        }, 0);
+      } else {
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m._id));
+          const newOnly = fetched.filter(m => !existingIds.has(m._id));
+          
+          if (newOnly.length === 0) {
+            // Update existing messages (for edits/deletions)
+            return prev.map(p => {
+              const updated = fetched.find(f => f._id === p._id);
+              return updated ? { ...p, ...updated } : p;
+            });
+          }
+
+          const next = [...prev, ...newOnly];
+          // Keep it capped if we want, but for now just append
+          return next;
+        });
+        
+        if (isInitialLoad.current) {
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+            isInitialLoad.current = false;
+          }, 100);
+        }
+      }
     } catch (err) {
       // Possible access denied
+    } finally {
+      if (before) setIsLoadingMore(false);
     }
   }, [id]);
 
@@ -70,7 +120,18 @@ export const ChatRoom: React.FC = () => {
   }, [fetchRoom, fetchMessages]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isInitialLoad.current) return;
+    
+    const container = scrollContainerRef.current;
+    if (container) {
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 200;
+      if (isNearBottom) {
+        // Use a small delay to ensure DOM has updated
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 50);
+      }
+    }
   }, [messages]);
 
   const handleSend = async (e: React.FormEvent) => {
@@ -116,6 +177,14 @@ export const ChatRoom: React.FC = () => {
     setEditingMessage(msg);
     setInputText(msg.content);
     setReplyTarget(null);
+  };
+
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (container && container.scrollTop === 0 && hasMore && !isLoadingMore && messages.length >= 50) {
+      const oldestMessage = messages[0];
+      fetchMessages(oldestMessage.createdAt);
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -170,7 +239,16 @@ export const ChatRoom: React.FC = () => {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
           {error && <div style={{ background: '#ffebe8', color: '#f02849', padding: 8, textAlign: 'center', fontSize: '0.9rem' }}>{error}</div>}
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+          <div 
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            style={{ flex: 1, overflowY: 'auto', padding: '20px' }}
+          >
+            {isLoadingMore && (
+              <div style={{ textAlign: 'center', padding: '10px 0', fontSize: '0.8rem', color: '#65676b' }}>
+                Loading older messages...
+              </div>
+            )}
             {messages.length === 0 ? (
               <div style={{ textAlign: 'center', color: '#8a8d91', marginTop: 100 }}>
                 <p style={{ fontSize: '1.2rem' }}>No messages yet</p>

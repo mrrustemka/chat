@@ -446,12 +446,23 @@ export const listMessages = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: 'You are banned from this room' });
     }
 
-    const messages = await Message.find({ room: req.params.id })
+    const limit = parseInt(req.query.limit as string) || 50;
+    const before = req.query.before as string;
+
+    const query: any = { room: req.params.id };
+    if (before) {
+      query.createdAt = { $lt: new Date(before) };
+    }
+
+    const messages = await Message.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit)
       .populate('sender', 'username')
       .populate({
         path: 'replyTo',
         populate: { path: 'sender', select: 'username' }
       });
+
     res.json(messages);
   } catch (error) {
     console.error('listMessages error:', error);
