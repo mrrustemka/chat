@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import Room from '../models/Room';
 import User from '../models/User';
+import Message from '../models/Message';
+import File from '../models/File';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 // POST /rooms  { name, description?, type? }
@@ -94,8 +96,12 @@ export const deleteRoom = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: 'Only the room owner can delete it' });
     }
 
+    // Delete associated messages and files
+    await Message.deleteMany({ room: req.params.id });
+    await File.deleteMany({ room: req.params.id });
+
     await Room.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Room deleted' });
+    res.json({ message: 'Room deleted and all associated data cleared' });
   } catch (error) {
     console.error('deleteRoom error:', error);
     res.status(500).json({ message: 'Server error' });

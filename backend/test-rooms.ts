@@ -1,3 +1,7 @@
+import Message from './src/models/Message';
+import File from './src/models/File';
+import mongoose from 'mongoose';
+
 async function runTests() {
   const API_URL = 'http://localhost:5000/api';
   try {
@@ -212,7 +216,54 @@ async function runTests() {
     }
     console.log('✅ Owner correctly prevented from banning themselves');
 
+    console.log('\n10. Testing Room Deletion Cleanup...');
+    // Connect to DB directly for verification
+    if (mongoose.connection.readyState === 0) {
+      await mongoose.connect('mongodb://localhost:27017/chat');
+    }
+
+    // Create a room to delete
+    const cleanupRoomRes = await fetch(`${API_URL}/rooms`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ name: `CleanupRoom ${ts}`, visibility: 'public' })
+    });
+    const cleanupRoom = await cleanupRoomRes.json() as any;
+    const roomId = cleanupRoom._id;
+
+    // Create dummy message and file
+    await Message.create({
+      room: roomId,
+      sender: userId,
+      content: 'Cleanup test message',
+      type: 'text'
+    });
+    await File.create({
+      room: roomId,
+      uploader: userId,
+      filename: 'test.txt',
+      originalName: 'test.txt',
+      path: '/tmp/test.txt',
+      mimetype: 'text/plain',
+      size: 100
+    });
+    console.log(`- Created dummy data for room ${roomId}`);
+
+    // Delete the room
+    await fetch(`${API_URL}/rooms/${roomId}`, { method: 'DELETE', headers });
+    console.log(`- Deleted room ${roomId}`);
+
+    // Verify cleanup
+    const msgCount = await Message.countDocuments({ room: roomId });
+    const fileCount = await File.countDocuments({ room: roomId });
+    
+    if (msgCount !== 0) throw new Error(`Messages not cleaned up! Found ${msgCount}`);
+    if (fileCount !== 0) throw new Error(`Files not cleaned up! Found ${fileCount}`);
+    
+    console.log('✅ All messages and files correctly deleted with the room');
+
     console.log('\n🎉 ALL ROOM TESTS PASSED!');
+    await mongoose.disconnect();
   } catch (error: any) {
     console.error('❌ Test failed:', error.message);
     process.exit(1);
