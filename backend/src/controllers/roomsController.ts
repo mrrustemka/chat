@@ -35,9 +35,23 @@ export const createRoom = async (req: AuthRequest, res: Response) => {
 export const listRooms = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!._id;
-    const rooms = await Room.find({
+    const { search } = req.query;
+    
+    let query: any = {
       $or: [{ visibility: 'public' }, { members: userId }]
-    })
+    };
+
+    if (search) {
+      const searchRegex = new RegExp(search.toString(), 'i');
+      query = {
+        $and: [
+          query,
+          { $or: [{ name: searchRegex }, { description: searchRegex }] }
+        ]
+      };
+    }
+
+    const rooms = await Room.find(query)
       .populate('owner', 'username')
       .sort({ createdAt: -1 });
 

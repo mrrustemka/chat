@@ -68,6 +68,42 @@ async function runTests() {
       throw new Error(`Should have failed with 409, got ${duplicateRes.status}`);
     }
 
+    console.log('\n6. Testing room search...');
+    // Create another room with unique name/desc
+    const searchName = `SearchableRoom ${ts}`;
+    const searchDesc = `Special keyword ${ts}`;
+    await fetch(`${API_URL}/rooms`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        name: searchName,
+        description: searchDesc,
+        visibility: 'public'
+      })
+    });
+
+    console.log(`- Searching for "${searchName}"...`);
+    const searchRes1 = await fetch(`${API_URL}/rooms?search=${encodeURIComponent(searchName)}`, { headers });
+    const searchData1: any = await searchRes1.json();
+    if (searchData1.length !== 1 || searchData1[0].name !== searchName) {
+      throw new Error(`Search by name failed. Expected 1 room, got ${searchData1.length}`);
+    }
+
+    console.log(`- Searching for keyword in description...`);
+    const searchRes2 = await fetch(`${API_URL}/rooms?search=${encodeURIComponent(`keyword ${ts}`)}`, { headers });
+    const searchData2: any = await searchRes2.json();
+    if (searchData2.length !== 1 || !searchData2[0].description.includes(`keyword ${ts}`)) {
+      throw new Error(`Search by description failed. Expected 1 room, got ${searchData2.length}`);
+    }
+
+    console.log('- Searching for non-existent room...');
+    const searchRes3 = await fetch(`${API_URL}/rooms?search=NonExistentRoomXYZ`, { headers });
+    const searchData3: any = await searchRes3.json();
+    if (searchData3.length !== 0) {
+      throw new Error(`Search for non-existent room failed. Expected 0 rooms, got ${searchData3.length}`);
+    }
+    console.log('✅ Room search verified');
+
     console.log('\n🎉 ALL ROOM TESTS PASSED!');
   } catch (error: any) {
     console.error('❌ Test failed:', error.message);

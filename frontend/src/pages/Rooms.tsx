@@ -27,17 +27,18 @@ export const Rooms: React.FC = () => {
   const [nameInput, setNameInput] = useState('');
   const [descInput, setDescInput] = useState('');
   const [typeInput, setTypeInput] = useState<RoomType>('public');
+  const [searchInput, setSearchInput] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  const fetchRooms = useCallback(async () => {
-    const res = await api.get('/rooms');
+  const fetchRooms = useCallback(async (search = '') => {
+    const res = await api.get(`/rooms${search ? `?search=${encodeURIComponent(search)}` : ''}`);
     setRooms(res.data);
   }, []);
 
   useEffect(() => {
-    fetchRooms();
-  }, [fetchRooms]);
+    fetchRooms(searchInput);
+  }, [fetchRooms, searchInput]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,7 +126,15 @@ export const Rooms: React.FC = () => {
 
       {/* Room List */}
       <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
-        <h3 style={{ marginTop: 0 }}>Available Rooms ({rooms.length})</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h3 style={{ margin: 0 }}>Available Rooms ({rooms.length})</h3>
+          <input
+            placeholder="Search rooms..."
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            style={{ padding: '6px 12px', borderRadius: 20, border: '1px solid #ccc', width: '40%' }}
+          />
+        </div>
         {rooms.length === 0 ? (
           <p style={{ color: '#6b7280' }}>No rooms yet. Create one above!</p>
         ) : (
