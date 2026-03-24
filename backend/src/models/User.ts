@@ -4,6 +4,7 @@ export interface IUser extends Document {
   email: string;
   username: string;
   passwordHash: string;
+  bannedUsers: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,7 +27,11 @@ const UserSchema: Schema = new Schema({
   passwordHash: {
     type: String,
     required: true
-  }
+  },
+  bannedUsers: [{
+    type: Schema.Types.ObjectId,
+    ref: 'User'
+  }]
 }, { timestamps: true });
 
 export default mongoose.model<IUser>('User', UserSchema);

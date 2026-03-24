@@ -6,7 +6,9 @@ import {
   declineRequest,
   removeFriend,
   listFriends,
-  listPending
+  listPending,
+  banUser,
+  unbanUser
 } from '../controllers/friendsController';
 
 const router = express.Router();
@@ -18,5 +20,7 @@ router.post('/request', authenticate as express.RequestHandler, sendRequest as e
 router.post('/accept/:id', authenticate as express.RequestHandler, acceptRequest as express.RequestHandler);
 router.post('/decline/:id', authenticate as express.RequestHandler, declineRequest as express.RequestHandler);
 router.delete('/:id', authenticate as express.RequestHandler, removeFriend as express.RequestHandler);
+router.post('/ban/:username', authenticate as express.RequestHandler, banUser as express.RequestHandler);
+router.post('/unban/:username', authenticate as express.RequestHandler, unbanUser as express.RequestHandler);
 
 export default router;

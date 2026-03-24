@@ -17,6 +17,15 @@ export const sendRequest = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'Cannot send request to yourself' });
     }
 
+    // Check for bans
+    const requester = await User.findById(requesterId);
+    if (requester?.bannedUsers.some(id => id.toString() === recipient._id.toString())) {
+      return res.status(403).json({ message: 'You have banned this user. Unban them first.' });
+    }
+    if (recipient.bannedUsers.some(id => id.toString() === requesterId.toString())) {
+      return res.status(403).json({ message: 'This user has banned you' });
+    }
+
     // Check no existing relationship in either direction
     const existing = await Friendship.findOne({
       $or: [
@@ -146,6 +155,63 @@ export const listPending = async (req: AuthRequest, res: Response) => {
     })));
   } catch (error) {
     console.error('listPending error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// POST /friends/ban/:username
+export const banUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { username } = req.params;
+
+    const targetUser = await User.findOne({ username });
+    if (!targetUser) return res.status(404).json({ message: 'User not found' });
+    if (targetUser._id.toString() === userId.toString()) {
+      return res.status(400).json({ message: 'Cannot ban yourself' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.bannedUsers.some(id => id.toString() === targetUser._id.toString())) {
+      user.bannedUsers.push(targetUser._id as any);
+      await user.save();
+    }
+
+    // Terminate friendship
+    await Friendship.findOneAndDelete({
+      $or: [
+        { requester: userId, recipient: targetUser._id },
+        { requester: targetUser._id, recipient: userId }
+      ]
+    });
+
+    res.json({ message: `User ${username} banned and friendship terminated` });
+  } catch (error) {
+    console.error('banUser error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// POST /friends/unban/:username
+export const unbanUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { username } = req.params;
+
+    const targetUser = await User.findOne({ username });
+    if (!targetUser) return res.status(404).json({ message: 'User not found' });
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.bannedUsers = user.bannedUsers.filter(id => id.toString() !== targetUser._id.toString());
+    await user.save();
+
+    res.json({ message: `User ${username} unbanned` });
+  } catch (error) {
+    console.error('unbanUser error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
