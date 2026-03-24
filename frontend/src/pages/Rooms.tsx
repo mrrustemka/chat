@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -196,7 +197,9 @@ export const Rooms: React.FC = () => {
                 <li key={room._id} style={{ padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                      <strong>{room.name}</strong>
+                      <Link to={`/rooms/${room._id}`} style={{ textDecoration: 'none', color: '#1f2937' }}>
+                        <strong>{room.name}</strong>
+                      </Link>
                       <span style={{ marginLeft: 8, fontSize: '0.78em', color: room.visibility === 'public' ? '#3b82f6' : '#8b5cf6', border: `1px solid ${room.visibility === 'public' ? '#3b82f6' : '#8b5cf6'}`, padding: '1px 6px', borderRadius: 10 }}>
                         {room.visibility}
                       </span>
@@ -277,7 +280,9 @@ export const Rooms: React.FC = () => {
                 <li key={room._id} style={{ padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                      <strong>{room.name}</strong>
+                      <Link to={`/rooms/${room._id}`} style={{ textDecoration: 'none', color: '#1f2937' }}>
+                        <strong>{room.name}</strong>
+                      </Link>
                       <span style={{ marginLeft: 8, fontSize: '0.78em', color: '#3b82f6', border: '1px solid #3b82f6', padding: '1px 6px', borderRadius: 10 }}>
                         public
                       </span>

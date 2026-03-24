@@ -1,7 +1,8 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IFile extends Document {
-  room: mongoose.Types.ObjectId;
+  room?: mongoose.Types.ObjectId;
+  personalChat?: mongoose.Types.ObjectId;
   uploader: mongoose.Types.ObjectId;
   filename: string;
   originalName: string;
@@ -16,7 +17,13 @@ const FileSchema: Schema = new Schema({
   room: {
     type: Schema.Types.ObjectId,
     ref: 'Room',
-    required: true,
+    required: false,
+    index: true
+  },
+  personalChat: {
+    type: Schema.Types.ObjectId,
+    ref: 'PersonalChat',
+    required: false,
     index: true
   },
   uploader: {

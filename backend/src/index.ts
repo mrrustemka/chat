@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import authRoutes from './routes/authRoutes';
 import friendRoutes from './routes/friendRoutes';
 import roomRoutes from './routes/roomRoutes';
+import personalChatRoutes from './routes/personalChatRoutes';
 
 const app = express();
 const port = 5000;
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/rooms', roomRoutes);
+app.use('/api/personal-chats', personalChatRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, {
