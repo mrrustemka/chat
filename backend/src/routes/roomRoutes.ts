@@ -1,7 +1,7 @@
 import express from 'express';
 import { authenticate } from '../middleware/authMiddleware';
 import { upload } from '../middleware/uploadMiddleware';
-import { createRoom, listRooms, getRoom, deleteRoom, joinRoom, leaveRoom, inviteToRoom, banUser, unbanUser, removeMember, addAdmin, removeAdmin, deleteMessage, editMessage, listMessages, sendMessage, uploadFile } from '../controllers/roomsController';
+import { createRoom, listRooms, getRoom, deleteRoom, joinRoom, leaveRoom, inviteToRoom, banUser, unbanUser, removeMember, addAdmin, removeAdmin, deleteMessage, editMessage, listMessages, sendMessage, uploadFile, markAsRead } from '../controllers/roomsController';
 
 const router = express.Router();
 
@@ -22,5 +22,6 @@ router.post('/:id/admins', authenticate as express.RequestHandler, addAdmin as e
 router.delete('/:id/admins/:adminId', authenticate as express.RequestHandler, removeAdmin as express.RequestHandler);
 router.patch('/:id/messages/:messageId', authenticate as express.RequestHandler, editMessage as express.RequestHandler);
 router.delete('/:id/messages/:messageId', authenticate as express.RequestHandler, deleteMessage as express.RequestHandler);
+router.post('/:id/read', authenticate as express.RequestHandler, markAsRead as express.RequestHandler);
 
 export default router;

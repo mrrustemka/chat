@@ -115,11 +115,12 @@ export const ChatRoom: React.FC = () => {
   }, [id]);
 
   useEffect(() => {
+    api.post(`/rooms/${id}/read`).catch(console.error);
     fetchRoom();
     fetchMessages();
     const interval = setInterval(fetchMessages, 3000);
     return () => clearInterval(interval);
-  }, [fetchRoom, fetchMessages]);
+  }, [fetchRoom, fetchMessages, id]);
 
   useEffect(() => {
     if (isInitialLoad.current) return;

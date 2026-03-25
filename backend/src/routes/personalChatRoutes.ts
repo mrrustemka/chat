@@ -8,7 +8,8 @@ import {
   sendMessage,
   uploadFile,
   editMessage,
-  deleteMessage
+  deleteMessage,
+  markAsRead
 } from '../controllers/personalChatController';
 
 const router = express.Router();
@@ -22,5 +23,6 @@ router.post('/:id/messages', sendMessage as express.RequestHandler);
 router.post('/:id/upload', upload.single('file'), uploadFile as express.RequestHandler);
 router.patch('/:id/messages/:messageId', editMessage as express.RequestHandler);
 router.delete('/:id/messages/:messageId', deleteMessage as express.RequestHandler);
+router.post('/:id/read', markAsRead as express.RequestHandler);
 
 export default router;

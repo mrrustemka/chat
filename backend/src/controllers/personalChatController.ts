@@ -4,7 +4,9 @@ import PersonalChat from '../models/PersonalChat';
 import Message from '../models/Message';
 import Friendship from '../models/Friendship';
 import FileModel from '../models/File';
+import LastRead from '../models/LastRead';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { emitToUsers } from '../socketManager';
 
 // POST /personal-chats/get-or-create/:username
 export const getOrCreateChat = async (req: AuthRequest, res: Response) => {
@@ -46,7 +48,18 @@ export const listChats = async (req: AuthRequest, res: Response) => {
       participants: userId
     }).populate('participants', 'username email');
 
-    res.json(chats);
+    const chatsWithUnread = await Promise.all(chats.map(async (chat) => {
+      const lastRead = await LastRead.findOne({ user: userId, personalChat: chat._id });
+      const unreadCount = await Message.countDocuments({
+        personalChat: chat._id,
+        createdAt: { $gt: lastRead ? lastRead.lastReadAt : new Date(0) },
+        sender: { $ne: userId }
+      });
+
+      return { ...chat.toObject(), unreadCount };
+    }));
+
+    res.json(chatsWithUnread);
   } catch (error) {
     console.error('listChats error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -147,7 +160,15 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     });
 
     await message.save();
-    res.status(201).json(message);
+    const populatedMessage = await message.populate('sender', 'username');
+
+    // Emit to both participants
+    emitToUsers(chat.participants.map(p => p.toString()), 'newMessage', {
+      personalChat: id,
+      message: populatedMessage
+    });
+
+    res.status(201).json(populatedMessage);
   } catch (error) {
     console.error('sendMessage error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -194,8 +215,15 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
       file: fileDoc._id
     });
     await message.save();
+    const populatedMessage = await message.populate('sender', 'username');
 
-    res.status(201).json({ message, file: fileDoc });
+    // Emit to both participants
+    emitToUsers(chat.participants.map(p => p.toString()), 'newMessage', {
+      personalChat: chatId,
+      message: populatedMessage
+    });
+
+    res.status(201).json({ message: populatedMessage, file: fileDoc });
   } catch (error) {
     console.error('uploadFile error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -253,6 +281,24 @@ export const deleteMessage = async (req: AuthRequest, res: Response) => {
     res.json({ message: 'Message deleted' });
   } catch (error) {
     console.error('deleteMessage error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const markAsRead = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { id: chatId } = req.params;
+
+    await LastRead.findOneAndUpdate(
+      { user: userId, personalChat: chatId },
+      { lastReadAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    res.json({ message: 'Marked as read' });
+  } catch (error) {
+    console.error('markAsRead error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

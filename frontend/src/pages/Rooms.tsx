@@ -24,13 +24,13 @@ interface Room {
   admins: string[];
   members: (string | RoomMember)[];
   bannedUsers: string[];
+  unreadCount?: number;
   createdAt: string;
 }
 
 export const Rooms: React.FC = () => {
-  const { user } = useAuth();
+  const { user, socket } = useAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
-  // ... (keep other states)
   const [nameInput, setNameInput] = useState('');
   const [descInput, setDescInput] = useState('');
   const [typeInput, setTypeInput] = useState<RoomType>('public');
@@ -58,8 +58,23 @@ export const Rooms: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchRooms(searchInput);
-  }, [fetchRooms, searchInput]);
+    fetchRooms();
+  }, [fetchRooms]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleNewMessage = (data: any) => {
+      if (data.room) {
+        setRooms(prev => prev.map(r =>
+          r._id === data.room ? { ...r, unreadCount: (r.unreadCount || 0) + 1 } : r
+        ));
+      }
+    };
+    socket.on('newMessage', handleNewMessage);
+    return () => {
+      socket.off('newMessage', handleNewMessage);
+    };
+  }, [socket]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,15 +218,30 @@ export const Rooms: React.FC = () => {
                       <span style={{ marginLeft: 8, fontSize: '0.78em', color: room.visibility === 'public' ? '#3b82f6' : '#8b5cf6', border: `1px solid ${room.visibility === 'public' ? '#3b82f6' : '#8b5cf6'}`, padding: '1px 6px', borderRadius: 10 }}>
                         {room.visibility}
                       </span>
+                      {room.unreadCount !== undefined && room.unreadCount > 0 && (
+                        <span style={{
+                          marginLeft: 8,
+                          backgroundColor: '#ef4444',
+                          color: 'white',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          padding: '2px 6px',
+                          borderRadius: '12px',
+                          display: 'inline-block',
+                          verticalAlign: 'middle'
+                        }}>
+                          {room.unreadCount} unread
+                        </span>
+                      )}
                       {room.description && <p style={{ margin: '4px 0 2px', color: '#6b7280', fontSize: '0.9em' }}>{room.description}</p>}
                       <p style={{ margin: 0, fontSize: '0.8em', color: '#9ca3af' }}>
                         Owner: {room.owner.username} · {room.members.length} member{room.members.length !== 1 ? 's' : ''}
                       </p>
-                      
+
                       {/* Invite section if owner/admin */}
                       {(isOwner(room) || room.admins.includes(user?.id || '')) && (
                         <div style={{ marginTop: 10, display: 'flex', gap: 5 }}>
-                          <input 
+                          <input
                             placeholder="Invite username"
                             value={inviteInputs[room._id] || ''}
                             onChange={e => setInviteInputs(prev => ({ ...prev, [room._id]: e.target.value }))}
@@ -226,7 +256,7 @@ export const Rooms: React.FC = () => {
                       {/* Ban section if owner/admin */}
                       {(isOwner(room) || room.admins.includes(user?.id || '')) && (
                         <div style={{ marginTop: 8, display: 'flex', gap: 5 }}>
-                          <input 
+                          <input
                             placeholder="Ban username"
                             value={banInputs[room._id] || ''}
                             onChange={e => setBanInputs(prev => ({ ...prev, [room._id]: e.target.value }))}
@@ -237,11 +267,11 @@ export const Rooms: React.FC = () => {
                           </button>
                         </div>
                       )}
-                      
+
                       {/* Banned Users list (if any) */}
                       {(isOwner(room) || room.admins.includes(user?.id || '')) && room.bannedUsers.length > 0 && (
                         <div style={{ marginTop: 8, fontSize: '0.8em', color: '#ef4444' }}>
-                          <strong>Banned:</strong> {room.bannedUsers.length} user(s). 
+                          <strong>Banned:</strong> {room.bannedUsers.length} user(s).
                           {/* Note: username lookup for bannedUsers would require population or another call, 
                               for now just showing count or placeholder. Simple unban would need the username. */}
                         </div>

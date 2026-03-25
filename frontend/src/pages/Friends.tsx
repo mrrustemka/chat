@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 type PresenceStatus = 'online' | 'afk' | 'offline';
 
@@ -13,6 +15,8 @@ interface Friend {
   friendshipId: string;
   user: FriendUser;
   status?: PresenceStatus;
+  unreadCount?: number;
+  chatId?: string;
 }
 
 interface PendingRequest {
@@ -22,6 +26,8 @@ interface PendingRequest {
 }
 
 export const Friends: React.FC = () => {
+  const navigate = useNavigate();
+  const { socket } = useAuth();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [pending, setPending] = useState<PendingRequest[]>([]);
   const [usernameInput, setUsernameInput] = useState('');
@@ -29,8 +35,28 @@ export const Friends: React.FC = () => {
   const [error, setError] = useState('');
 
   const fetchFriends = useCallback(async () => {
-    const res = await api.get('/friends');
-    setFriends(res.data);
+    try {
+      const [friendsRes, chatsRes] = await Promise.all([
+        api.get('/friends'),
+        api.get('/personal-chats')
+      ]);
+
+      const friendsData = friendsRes.data as Friend[];
+      const chatsData = chatsRes.data as any[];
+
+      const combined = friendsData.map(f => {
+        const chat = chatsData.find(c => c.participants.some((p: any) => p._id === f.user._id));
+        return {
+          ...f,
+          chatId: chat?._id,
+          unreadCount: chat?.unreadCount || 0
+        };
+      });
+
+      setFriends(combined);
+    } catch (err) {
+      console.error('Failed to fetch friends/chats', err);
+    }
   }, []);
 
   const fetchPending = useCallback(async () => {
@@ -42,6 +68,30 @@ export const Friends: React.FC = () => {
     fetchFriends();
     fetchPending();
   }, [fetchFriends, fetchPending]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handlePresenceUpdate = (data: { userId: string, status: PresenceStatus }) => {
+      setFriends(prev => prev.map(f => f.user._id === data.userId ? { ...f, status: data.status } : f));
+    };
+
+    const handleNewMessage = (data: any) => {
+      if (data.personalChat) {
+        setFriends(prev => prev.map(f => 
+          f.chatId === data.personalChat ? { ...f, unreadCount: (f.unreadCount || 0) + 1 } : f
+        ));
+      }
+    };
+
+    socket.on('presenceUpdate', handlePresenceUpdate);
+    socket.on('newMessage', handleNewMessage);
+
+    return () => {
+      socket.off('presenceUpdate', handlePresenceUpdate);
+      socket.off('newMessage', handleNewMessage);
+    };
+  }, [socket]);
 
   const handleSendRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,10 +185,30 @@ export const Friends: React.FC = () => {
                     <span style={{ width: 10, height: 10, borderRadius: '50%', background: statusColor[s], display: 'inline-block' }} title={s} />
                     <span><strong>{f.user.username}</strong></span>
                     <span style={{ fontSize: '0.8em', color: '#6b7280', textTransform: 'capitalize' }}>{s}</span>
+                    {f.unreadCount !== undefined && f.unreadCount > 0 && (
+                      <span style={{
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        padding: '1px 6px',
+                        borderRadius: '10px',
+                      }}>
+                        {f.unreadCount}
+                      </span>
+                    )}
                   </div>
-                  <button onClick={() => handleRemove(f.friendshipId)} style={{ padding: '4px 10px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: 4, cursor: 'pointer', fontSize: '0.85em' }}>
-                    Remove
-                  </button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => navigate(`/personal-chats/${f.chatId || f.user.username}`)}
+                      style={{ padding: '4px 10px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: '0.85em' }}
+                    >
+                      Chat
+                    </button>
+                    <button onClick={() => handleRemove(f.friendshipId)} style={{ padding: '4px 10px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: 4, cursor: 'pointer', fontSize: '0.85em' }}>
+                      Remove
+                    </button>
+                  </div>
                 </li>
               );
             })}

@@ -4,7 +4,9 @@ import Room from '../models/Room';
 import User from '../models/User';
 import Message from '../models/Message';
 import FileModel from '../models/File';
+import LastRead from '../models/LastRead';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { emitToUsers } from '../socketManager';
 
 // POST /rooms  { name, description?, type? }
 export const createRoom = async (req: AuthRequest, res: Response) => {
@@ -60,7 +62,22 @@ export const listRooms = async (req: AuthRequest, res: Response) => {
       .populate('members', 'username')
       .sort({ createdAt: -1 });
 
-    res.json(rooms);
+    // Calculate unread counts
+    const roomsWithUnread = await Promise.all(rooms.map(async (room) => {
+      const isMember = room.members.some(m => m._id.toString() === userId.toString());
+      if (!isMember) return { ...room.toObject(), unreadCount: 0 };
+
+      const lastRead = await LastRead.findOne({ user: userId, room: room._id });
+      const unreadCount = await Message.countDocuments({
+        room: room._id,
+        createdAt: { $gt: lastRead ? lastRead.lastReadAt : new Date(0) },
+        sender: { $ne: userId } // Don't count own messages
+      });
+
+      return { ...room.toObject(), unreadCount };
+    }));
+
+    res.json(roomsWithUnread);
   } catch (error) {
     console.error('listRooms error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -506,7 +523,15 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     });
 
     await message.save();
-    res.status(201).json(message);
+    const populatedMessage = await message.populate('sender', 'username');
+    
+    // Emit to all members
+    emitToUsers(room.members.map(m => m.toString()), 'newMessage', {
+      room: roomId,
+      message: populatedMessage
+    });
+
+    res.status(201).json(populatedMessage);
   } catch (error) {
     console.error('sendMessage error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -559,10 +584,35 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
       file: fileDoc._id
     });
     await message.save();
+    const populatedMessage = await message.populate('sender', 'username');
 
-    res.status(201).json({ message, file: fileDoc });
+    // Emit to all members
+    emitToUsers(room.members.map(m => m.toString()), 'newMessage', {
+      room: roomId,
+      message: populatedMessage
+    });
+
+    res.status(201).json({ message: populatedMessage, file: fileDoc });
   } catch (error) {
     console.error('uploadFile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const markAsRead = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    const { id: roomId } = req.params;
+
+    await LastRead.findOneAndUpdate(
+      { user: userId, room: roomId },
+      { lastReadAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    res.json({ message: 'Marked as read' });
+  } catch (error) {
+    console.error('markAsRead error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

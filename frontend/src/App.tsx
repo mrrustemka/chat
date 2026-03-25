@@ -8,6 +8,7 @@ import { Profile } from './pages/Profile';
 import { Friends } from './pages/Friends';
 import { Rooms } from './pages/Rooms';
 import { ChatRoom } from './pages/ChatRoom';
+import { PersonalChat } from './pages/PersonalChat';
 import './App.css';
 
 const Home: React.FC = () => {
@@ -39,6 +40,7 @@ const AppContent: React.FC = () => {
         <Route path="/friends" element={<Friends />} />
         <Route path="/rooms" element={<Rooms />} />
         <Route path="/rooms/:id" element={<ChatRoom />} />
+        <Route path="/personal-chats/:id" element={<PersonalChat />} />
       </Route>
     </Routes>
   );

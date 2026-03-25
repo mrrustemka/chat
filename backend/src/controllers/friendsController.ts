@@ -2,6 +2,7 @@ import { Response } from 'express';
 import User from '../models/User';
 import Friendship from '../models/Friendship';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { getOverallStatus } from '../socketManager';
 
 // POST /friends/request  { username }
 export const sendRequest = async (req: AuthRequest, res: Response) => {
@@ -129,9 +130,11 @@ export const listFriends = async (req: AuthRequest, res: Response) => {
     const friends = friendships.map(f => {
       const isRequester = f.requester._id.toString() === userId.toString();
       const friend = isRequester ? f.recipient : f.requester;
+      const friendId = friend._id.toString();
       return {
         friendshipId: f._id,
-        user: friend
+        user: friend,
+        status: getOverallStatus(friendId)
       };
     });
 
