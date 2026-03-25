@@ -48,16 +48,32 @@ export const listChats = async (req: AuthRequest, res: Response) => {
       participants: userId
     }).populate('participants', 'username email');
 
-    const chatsWithUnread = await Promise.all(chats.map(async (chat) => {
-      const lastRead = await LastRead.findOne({ user: userId, personalChat: chat._id });
-      const unreadCount = await Message.countDocuments({
-        personalChat: chat._id,
-        createdAt: { $gt: lastRead ? lastRead.lastReadAt : new Date(0) },
-        sender: { $ne: userId }
-      });
+    const chatIds = chats.map(c => c._id);
+    const lastReads = await LastRead.find({ user: userId, personalChat: { $in: chatIds } });
+    const lastReadMap = new Map(lastReads.map(lr => [lr.personalChat!.toString(), lr.lastReadAt]));
 
-      return { ...chat.toObject(), unreadCount };
+    const orConditions = chats.map(c => ({
+      personalChat: c._id,
+      createdAt: { $gt: lastReadMap.get(c._id.toString()) || new Date(0) },
+      sender: { $ne: userId }
     }));
+
+    const unreadCountMap = new Map<string, number>();
+    if (orConditions.length > 0) {
+      const counts = await Message.aggregate([
+        { $match: { $or: orConditions, sender: { $ne: userId } } },
+        { $group: { _id: "$personalChat", count: { $sum: 1 } } }
+      ]);
+      counts.forEach(c => unreadCountMap.set(c._id.toString(), c.count));
+    }
+
+    const chatsWithUnread = chats.map(chat => {
+      const chatIdStr = chat._id.toString();
+      return {
+        ...chat.toObject(),
+        unreadCount: unreadCountMap.get(chatIdStr) || 0
+      };
+    });
 
     res.json(chatsWithUnread);
   } catch (error) {

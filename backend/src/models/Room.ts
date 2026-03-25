@@ -58,5 +58,7 @@ const RoomSchema: Schema = new Schema({
 
 // Unique room names
 RoomSchema.index({ name: 1 }, { unique: true });
+RoomSchema.index({ members: 1 });
+RoomSchema.index({ admins: 1 });
 
 export default mongoose.model<IRoom>('Room', RoomSchema);

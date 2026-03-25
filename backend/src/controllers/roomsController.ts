@@ -59,23 +59,34 @@ export const listRooms = async (req: AuthRequest, res: Response) => {
 
     const rooms = await Room.find(query)
       .populate('owner', 'username')
-      .populate('members', 'username')
       .sort({ createdAt: -1 });
 
-    // Calculate unread counts
-    const roomsWithUnread = await Promise.all(rooms.map(async (room) => {
-      const isMember = room.members.some(m => m._id.toString() === userId.toString());
-      if (!isMember) return { ...room.toObject(), unreadCount: 0 };
+    const roomIds = rooms.map(r => r._id);
+    const lastReads = await LastRead.find({ user: userId, room: { $in: roomIds } });
+    const lastReadMap = new Map(lastReads.map(lr => [lr.room!.toString(), lr.lastReadAt]));
 
-      const lastRead = await LastRead.findOne({ user: userId, room: room._id });
-      const unreadCount = await Message.countDocuments({
-        room: room._id,
-        createdAt: { $gt: lastRead ? lastRead.lastReadAt : new Date(0) },
-        sender: { $ne: userId } // Don't count own messages
-      });
+    const orConditions = rooms.map(r => ({
+      room: r._id,
+      createdAt: { $gt: lastReadMap.get(r._id.toString()) || new Date(0) },
+      sender: { $ne: userId }
+    })).filter(cond => cond.room); // Ensure room is present
 
-      return { ...room.toObject(), unreadCount };
-    }));
+    const unreadCountMap = new Map<string, number>();
+    if (orConditions.length > 0) {
+      const counts = await Message.aggregate([
+        { $match: { $or: orConditions, sender: { $ne: userId } } },
+        { $group: { _id: "$room", count: { $sum: 1 } } }
+      ]);
+      counts.forEach(c => unreadCountMap.set(c._id.toString(), c.count));
+    }
+
+    const roomsWithUnread = rooms.map(room => {
+      const roomIdStr = room._id.toString();
+      return {
+        ...room.toObject(),
+        unreadCount: unreadCountMap.get(roomIdStr) || 0
+      };
+    });
 
     res.json(roomsWithUnread);
   } catch (error) {
