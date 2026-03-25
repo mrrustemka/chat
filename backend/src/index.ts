@@ -8,17 +8,18 @@ import authRoutes from './routes/authRoutes';
 import friendRoutes from './routes/friendRoutes';
 import roomRoutes from './routes/roomRoutes';
 import personalChatRoutes from './routes/personalChatRoutes';
+import fileRoutes from './routes/fileRoutes';
 
 const app = express();
 const port = 5000;
 
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/personal-chats', personalChatRoutes);
+app.use('/api/files', fileRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, {

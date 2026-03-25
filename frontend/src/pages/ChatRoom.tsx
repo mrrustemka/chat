@@ -20,6 +20,7 @@ interface Message {
   };
   isEdited?: boolean;
   isDeleted?: boolean;
+  file?: string;
   createdAt: string;
 }
 
@@ -46,6 +47,7 @@ export const ChatRoom: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const isInitialLoad = useRef(true);
 
   const fetchRoom = useCallback(async () => {
@@ -136,15 +138,26 @@ export const ChatRoom: React.FC = () => {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() && !pendingFile) return;
 
-    if (new Blob([inputText]).size > 3072) {
-      alert('Message is too long (max 3 KB)');
+    if (inputText.length > 3000) {
+      alert('Message is too long (max 3000 characters)');
       return;
     }
 
     try {
-      if (editingMessage) {
+      if (pendingFile) {
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('file', pendingFile);
+        if (inputText.trim()) {
+          formData.append('comment', inputText.trim());
+        }
+        await api.post(`/rooms/${id}/upload`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        setPendingFile(null);
+      } else if (editingMessage) {
         await api.patch(`/rooms/${id}/messages/${editingMessage._id}`, {
           content: inputText.trim()
         });
@@ -160,6 +173,8 @@ export const ChatRoom: React.FC = () => {
       fetchMessages();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to send message');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -187,24 +202,22 @@ export const ChatRoom: React.FC = () => {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (file) setPendingFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
-    const formData = new FormData();
-    formData.append('file', file);
-
-    setIsUploading(true);
-    try {
-      await api.post(`/rooms/${id}/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      fetchMessages();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to upload file');
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file') {
+        const file = items[i].getAsFile();
+        if (file) {
+          setPendingFile(file);
+          break; // Only handle one file at a time for now
+        }
+      }
     }
   };
 
@@ -286,19 +299,28 @@ export const ChatRoom: React.FC = () => {
                     {msg.sender._id !== user?.id && <div style={{ fontWeight: 600, fontSize: '0.75rem', marginBottom: 2, color: '#65676b' }}>{msg.sender.username}</div>}
 
                     {/* Message Content by Type */}
-                    {msg.type === 'image' ? (
-                      <img
-                        src={`http://localhost:5000/uploads/${msg.content}`}
-                        alt="attachment"
-                        style={{ maxWidth: '100%', borderRadius: 8, marginTop: 4, cursor: 'pointer' }}
-                        onClick={() => window.open(`http://localhost:5000/uploads/${msg.content}`, '_blank')}
-                      />
-                    ) : msg.type === 'file' ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: 8, marginTop: 4 }}>
-                        <span style={{ fontSize: '1.2rem' }}>📄</span>
-                        <a href={`http://localhost:5000/uploads/${msg.content}`} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'underline', fontSize: '0.85rem' }}>
-                          {msg.content}
-                        </a>
+                    {msg.type === 'image' && msg.file ? (
+                      <div>
+                        <img
+                          src={`http://localhost:5000/api/files/${msg.file}?token=${localStorage.getItem('token')}`}
+                          alt="attachment"
+                          style={{ maxWidth: '100%', borderRadius: 8, marginTop: 4, cursor: 'pointer', display: 'block' }}
+                          onClick={() => window.open(`http://localhost:5000/api/files/${msg.file}?token=${localStorage.getItem('token')}`, '_blank')}
+                        />
+                        {msg.content !== 'image' && msg.content !== '' && (
+                          <div style={{ marginTop: 8, wordBreak: 'break-word', whiteSpace: 'pre-wrap', fontSize: '0.93rem' }}>
+                            {msg.content}
+                          </div>
+                        )}
+                      </div>
+                    ) : msg.type === 'file' && msg.file ? (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: 8, marginTop: 4 }}>
+                          <span style={{ fontSize: '1.2rem' }}>📄</span>
+                          <a href={`http://localhost:5000/api/files/${msg.file}?token=${localStorage.getItem('token')}`} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'underline', fontSize: '0.85rem' }}>
+                            {msg.content}
+                          </a>
+                        </div>
                       </div>
                     ) : (
                       <div style={{ 
@@ -373,6 +395,23 @@ export const ChatRoom: React.FC = () => {
             </div>
           )}
 
+          {/* Attachment Preview */}
+          {pendingFile && (
+            <div style={{ padding: '8px 20px', background: '#e7f3ff', borderTop: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.85rem', color: '#1877f2' }}>
+                <span>📎 <strong>{pendingFile.name}</strong> ({(pendingFile.size / 1024).toFixed(1)} KB)</span>
+                {pendingFile.type.startsWith('image/') && (
+                  <img 
+                    src={URL.createObjectURL(pendingFile)} 
+                    alt="preview" 
+                    style={{ height: 30, borderRadius: 4, objectFit: 'cover' }} 
+                  />
+                )}
+              </div>
+              <button onClick={() => setPendingFile(null)} style={{ background: 'none', border: 'none', color: '#f02849', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+            </div>
+          )}
+
           {/* Input Area */}
           <form onSubmit={handleSend} style={{ padding: '12px 20px', background: 'white', borderTop: '1px solid #ddd' }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
@@ -380,7 +419,7 @@ export const ChatRoom: React.FC = () => {
                 type="file"
                 hidden
                 ref={fileInputRef}
-                onChange={handleFileUpload}
+                onChange={handleFileSelect}
               />
               <button
                 type="button"
@@ -394,6 +433,7 @@ export const ChatRoom: React.FC = () => {
               <textarea
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
+                onPaste={handlePaste}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -418,12 +458,12 @@ export const ChatRoom: React.FC = () => {
               />
               <button
                 type="submit"
-                disabled={!inputText.trim() || isUploading}
+                disabled={(!inputText.trim() && !pendingFile) || isUploading}
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: (inputText.trim() && !isUploading) ? '#0084ff' : '#bcc0c4',
-                  cursor: (inputText.trim() && !isUploading) ? 'pointer' : 'default',
+                  color: ((inputText.trim() || pendingFile) && !isUploading) ? '#0084ff' : '#bcc0c4',
+                  cursor: ((inputText.trim() || pendingFile) && !isUploading) ? 'pointer' : 'default',
                   fontWeight: 600,
                   fontSize: '1rem',
                   padding: '8px 0'

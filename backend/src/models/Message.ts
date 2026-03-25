@@ -9,6 +9,7 @@ export interface IMessage extends Document {
   type: 'text' | 'image' | 'file';
   isEdited: boolean;
   isDeleted: boolean;
+  file?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,6 +54,11 @@ const MessageSchema: Schema = new Schema({
   isDeleted: {
     type: Boolean,
     default: false
+  },
+  file: {
+    type: Schema.Types.ObjectId,
+    ref: 'File',
+    required: false
   }
 }, { timestamps: true });
 

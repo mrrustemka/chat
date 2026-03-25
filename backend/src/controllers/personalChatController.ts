@@ -159,6 +159,7 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!._id;
     const { id: chatId } = req.params;
+    const { comment } = req.body;
     const file = req.file;
 
     if (!file) return res.status(400).json({ message: 'No file uploaded' });
@@ -188,8 +189,9 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
     const message = new Message({
       personalChat: chatId,
       sender: userId,
-      content: file.originalname,
-      type: isImage ? 'image' : 'file'
+      content: comment || file.originalname,
+      type: isImage ? 'image' : 'file',
+      file: fileDoc._id
     });
     await message.save();
 

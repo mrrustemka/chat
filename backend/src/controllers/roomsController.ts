@@ -291,7 +291,7 @@ export const removeMember = async (req: AuthRequest, res: Response) => {
     // Treat removal as a ban
     if (!room.bannedUsers.some(b => b.user.toString() === targetUserId)) {
       room.bannedUsers.push({
-        user: new mongoose.Types.ObjectId(targetUserId),
+        user: new mongoose.Types.ObjectId(targetUserId as string),
         bannedBy: userId as any,
         bannedAt: new Date()
       });
@@ -518,6 +518,7 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!._id;
     const { id: roomId } = req.params;
+    const { comment } = req.body;
     const file = req.file;
 
     if (!file) return res.status(400).json({ message: 'No file uploaded' });
@@ -553,8 +554,9 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
     const message = new Message({
       room: roomId,
       sender: userId,
-      content: file.originalname,
-      type: isImage ? 'image' : 'file'
+      content: comment || file.originalname,
+      type: isImage ? 'image' : 'file',
+      file: fileDoc._id
     });
     await message.save();
 
