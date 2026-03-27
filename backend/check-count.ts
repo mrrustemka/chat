@@ -1,0 +1,1 @@
+import mongoose from 'mongoose'; import Message from './src/models/Message'; async function check() { await mongoose.connect('mongodb://localhost:27017/chat'); const count = await Message.countDocuments(); console.log('Total messages in DB:', count); process.exit(0); } check();
