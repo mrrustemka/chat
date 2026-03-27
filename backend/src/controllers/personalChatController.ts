@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import fs from 'fs';
 import User from '../models/User';
 import PersonalChat from '../models/PersonalChat';
 import Message from '../models/Message';
@@ -209,6 +210,12 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
     }
 
     const isImage = file.mimetype.startsWith('image/');
+    
+    // Image size limit: 3 MB
+    if (isImage && file.size > 3 * 1024 * 1024) {
+      fs.unlinkSync(file.path);
+      return res.status(400).json({ message: 'Image exceeds 3 MB size limit' });
+    }
 
     // 1. Create File record
     const fileDoc = new FileModel({

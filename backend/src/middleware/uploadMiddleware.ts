@@ -18,5 +18,21 @@ const storage = multer.diskStorage({
 
 export const upload = multer({ 
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10 MB limit
+  limits: { fileSize: 20 * 1024 * 1024 } // 20 MB limit
 });
+
+import { Request, Response, NextFunction } from 'express';
+
+export const handleUploadError = (req: Request, res: Response, next: NextFunction) => {
+  upload.single('file')(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: 'File exceeds 20 MB size limit' });
+      }
+      return res.status(400).json({ message: err.message });
+    } else if (err) {
+      return res.status(500).json({ message: 'Upload error' });
+    }
+    next();
+  });
+};

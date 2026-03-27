@@ -1,6 +1,6 @@
 import express from 'express';
 import { authenticate } from '../middleware/authMiddleware';
-import { upload } from '../middleware/uploadMiddleware';
+import { upload, handleUploadError } from '../middleware/uploadMiddleware';
 import { createRoom, listRooms, getRoom, deleteRoom, joinRoom, leaveRoom, inviteToRoom, banUser, unbanUser, removeMember, addAdmin, removeAdmin, deleteMessage, editMessage, listMessages, sendMessage, uploadFile, markAsRead } from '../controllers/roomsController';
 
 const router = express.Router();
@@ -10,7 +10,7 @@ router.post('/', authenticate as express.RequestHandler, createRoom as express.R
 router.get('/:id', authenticate as express.RequestHandler, getRoom as express.RequestHandler);
 router.get('/:id/messages', authenticate as express.RequestHandler, listMessages as express.RequestHandler);
 router.post('/:id/messages', authenticate as express.RequestHandler, sendMessage as express.RequestHandler);
-router.post('/:id/upload', authenticate as express.RequestHandler, upload.single('file'), uploadFile as express.RequestHandler);
+router.post('/:id/upload', authenticate as express.RequestHandler, handleUploadError as express.RequestHandler, uploadFile as express.RequestHandler);
 router.delete('/:id', authenticate as express.RequestHandler, deleteRoom as express.RequestHandler);
 router.post('/:id/join', authenticate as express.RequestHandler, joinRoom as express.RequestHandler);
 router.post('/:id/leave', authenticate as express.RequestHandler, leaveRoom as express.RequestHandler);
