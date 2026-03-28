@@ -1,0 +1,43 @@
+.chat-layout-root {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: #f0f2f5;
+}
+
+.chat-layout-sidebar {
+  width: 60px;
+  background: #1c1e21;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0;
+  gap: 20px;
+}
+
+.chat-sidebar-link {
+  color: white;
+  text-decoration: none;
+  font-size: 1.5rem;
+}
+
+.chat-sidebar-spacer {
+  flex: 1;
+}
+
+.chat-sidebar-logout {
+  background: none;
+  border: none;
+  color: #f02849;
+  cursor: pointer;
+  font-size: 1.5rem;
+}
+
+.chat-layout-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}

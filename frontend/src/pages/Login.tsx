@@ -23,17 +23,17 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: '50px auto', padding: 20 }}>
+    <div className="auth-container">
       <h2>Sign In</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {error && <p className="auth-error">{error}</p>}
+      <form onSubmit={handleSubmit} className="auth-form">
         <input 
           type="email" 
           placeholder="Email" 
           value={email} 
           onChange={e => setEmail(e.target.value)} 
           required 
-          style={{ padding: 10 }}
+          className="auth-input"
         />
         <input 
           type="password" 
@@ -41,9 +41,9 @@ export const Login: React.FC = () => {
           value={password} 
           onChange={e => setPassword(e.target.value)} 
           required 
-          style={{ padding: 10 }}
+          className="auth-input"
         />
-        <button type="submit" style={{ padding: 10, cursor: 'pointer' }}>Login</button>
+        <button type="submit" className="btn btn-primary auth-btn">Login</button>
       </form>
       <p>Don't have an account? <Link to="/register">Register here</Link></p>
     </div>

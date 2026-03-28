@@ -7,15 +7,15 @@ import { Register } from './pages/Register';
 import { Profile } from './pages/Profile';
 import { Friends } from './pages/Friends';
 import { Rooms } from './pages/Rooms';
-import { ChatRoom } from './pages/ChatRoom';
-import { PersonalChat } from './pages/PersonalChat';
+import { ChatRoom } from './pages/ChatRoom/ChatRoom';
+import { PersonalChat } from './pages/PersonalChat/PersonalChat';
 import { ChatLayout } from './components/ChatLayout';
 import './App.css';
 
 const Home: React.FC = () => {
   const { user } = useAuth();
   return (
-    <div style={{ padding: 20 }}>
+    <div className="app-home-container">
       <h1>Welcome to Chat App</h1>
       <p>Hello, {user?.username}!</p>
       <nav>

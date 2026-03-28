@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UAParser } from 'ua-parser-js';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import './Profile.css';
 
 interface SessionData {
   id: string;
@@ -91,25 +92,25 @@ export const Profile: React.FC = () => {
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: '50px auto', padding: 20 }}>
+    <div className="profile-container">
       <h2>Profile Overview</h2>
-      <div style={{ marginBottom: 20, padding: 10, border: '1px solid #ccc' }}>
+      <div className="profile-card">
         <p><strong>Username:</strong> {user?.username}</p>
         <p><strong>Email:</strong> {user?.email}</p>
       </div>
 
-      <div style={{ marginBottom: 20, padding: 10, border: '1px solid #ccc' }}>
+      <div className="profile-card">
         <h3>Change Password</h3>
-        {message && <p style={{ color: 'green' }}>{message}</p>}
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {message && <p className="auth-success">{message}</p>}
+        {error && <p className="auth-error">{error}</p>}
+        <form onSubmit={handlePasswordChange} className="auth-form">
           <input
             type="password"
             placeholder="Current Password"
             value={oldPassword}
             onChange={e => setOldPassword(e.target.value)}
             required
-            style={{ padding: 10 }}
+            className="auth-input"
           />
           <input
             type="password"
@@ -117,31 +118,31 @@ export const Profile: React.FC = () => {
             value={newPassword}
             onChange={e => setNewPassword(e.target.value)}
             required
-            style={{ padding: 10 }}
+            className="auth-input"
           />
-          <button type="submit" style={{ padding: 10, cursor: 'pointer' }}>Change Password</button>
+          <button type="submit" className="auth-btn btn-primary">Change Password</button>
         </form>
       </div>
-      <div style={{ marginBottom: 20, padding: 10, border: '1px solid #ccc' }}>
+      <div className="profile-card">
         <h3>Active Sessions</h3>
         {sessions.length === 0 ? (
           <p>Loading sessions...</p>
         ) : (
-          <ul style={{ listStyleType: 'none', padding: 0 }}>
+          <ul className="profile-session-list">
             {sessions.map(session => (
-              <li key={session.id} style={{ marginBottom: 15, padding: 10, border: '1px solid #eee', borderRadius: 4 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <li key={session.id} className="profile-session-item">
+                <div className="profile-session-row">
                   <div>
                     <strong>{getDeviceName(session.userAgent)}</strong>
-                    {session.isCurrentSession && <span style={{ marginLeft: 10, color: 'green', fontSize: '0.8em', border: '1px solid green', padding: '2px 4px', borderRadius: 3 }}>Current</span>}
-                    <div style={{ fontSize: '0.9em', color: '#666', marginTop: 5 }}>
+                    {session.isCurrentSession && <span className="profile-session-current-badge">Current</span>}
+                    <div className="profile-session-details">
                       IP: {session.ipAddress || 'Unknown'} <br />
                       Last Active: {new Date(session.createdAt).toLocaleString()}
                     </div>
                   </div>
                   <button
                     onClick={() => handleLogoutSession(session.id, session.isCurrentSession)}
-                    style={{ padding: '8px 12px', cursor: 'pointer', backgroundColor: session.isCurrentSession ? '#ffcccb' : '#ff9999', color: 'darkred', border: 'none', borderRadius: 4 }}
+                    className={`profile-btn-session ${session.isCurrentSession ? 'profile-btn-session-current' : 'profile-btn-session-revoke'}`}
                   >
                     {session.isCurrentSession ? 'Log Out' : 'Revoke'}
                   </button>
@@ -152,12 +153,12 @@ export const Profile: React.FC = () => {
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 30 }}>
-        <button onClick={logout} style={{ padding: '10px 20px', cursor: 'pointer', backgroundColor: '#eee', color: '#333', border: '1px solid #ccc', borderRadius: 4 }}>
+      <div className="profile-actions-row">
+        <button onClick={logout} className="profile-btn-logout">
           Logout
         </button>
 
-        <button onClick={handleDeleteAccount} style={{ padding: '10px 20px', cursor: 'pointer', backgroundColor: '#f02849', color: 'white', border: 'none', borderRadius: 4, fontWeight: 600 }}>
+        <button onClick={handleDeleteAccount} className="profile-btn-delete">
           Delete Account
         </button>
       </div>

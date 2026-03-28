@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import './Rooms.css';
 
 type RoomType = 'public' | 'private';
 
@@ -144,88 +145,78 @@ export const Rooms: React.FC = () => {
   const isOwner = (room: Room) => room.owner._id === user?.id;
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: '20px' }}>
-      <div style={{ maxWidth: 700, margin: '0 auto' }}>
+    <div className="rooms-container">
+      <div className="rooms-content">
         <h2>Chat Rooms</h2>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        {message && <p style={{ color: 'green' }}>{message}</p>}
+        {error && <p className="auth-error">{error}</p>}
+        {message && <p className="auth-success">{message}</p>}
 
         {/* Create Room */}
-        <div style={{ marginBottom: 28, padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
-          <h3 style={{ marginTop: 0 }}>Create a Room</h3>
-          <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="rooms-card">
+          <h3 className="rooms-card-header">Create a Room</h3>
+          <form onSubmit={handleCreate} className="rooms-form">
             <input
               placeholder="Room name *"
               value={nameInput}
               onChange={e => setNameInput(e.target.value)}
               required
-              style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+              className="rooms-input"
             />
             <input
               placeholder="Description (optional)"
               value={descInput}
               onChange={e => setDescInput(e.target.value)}
-              style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+              className="rooms-input"
             />
-            <select value={typeInput} onChange={e => setTypeInput(e.target.value as RoomType)} style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc' }}>
+            <select value={typeInput} onChange={e => setTypeInput(e.target.value as RoomType)} className="rooms-input">
               <option value="public">Public</option>
               <option value="private">Private</option>
             </select>
-            <button type="submit" style={{ padding: '9px 0', background: '#3b82f6', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+            <button type="submit" className="rooms-btn-primary">
               Create Room
             </button>
           </form>
         </div>
 
         {/* Room Lists */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
+        <div className="rooms-layout-col">
           {/* My Rooms */}
-          <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
-            <h3 style={{ marginTop: 0 }}>My Rooms ({rooms.filter(isMember).length})</h3>
+          <div className="rooms-list-card">
+            <h3 className="rooms-card-header">My Rooms ({rooms.filter(isMember).length})</h3>
             {rooms.filter(isMember).length === 0 ? (
-              <p style={{ color: '#6b7280' }}>You haven't joined any rooms yet.</p>
+              <p className="rooms-empty-text">You haven't joined any rooms yet.</p>
             ) : (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              <ul className="rooms-list">
                 {rooms.filter(isMember).map(room => (
-                  <li key={room._id} style={{ padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <li key={room._id} className="rooms-list-item">
+                    <div className="rooms-item-row">
                       <div>
-                        <Link to={`/rooms/${room._id}`} style={{ textDecoration: 'none', color: '#1f2937' }}>
+                        <Link to={`/rooms/${room._id}`} className="rooms-item-title">
                           <strong>{room.name}</strong>
                         </Link>
-                        <span style={{ marginLeft: 8, fontSize: '0.78em', color: room.visibility === 'public' ? '#3b82f6' : '#8b5cf6', border: `1px solid ${room.visibility === 'public' ? '#3b82f6' : '#8b5cf6'}`, padding: '1px 6px', borderRadius: 10 }}>
+                        <span className={`rooms-visibility-badge rooms-visibility-${room.visibility}`}>
                           {room.visibility}
                         </span>
                         {room.unreadCount !== undefined && room.unreadCount > 0 && (
-                          <span style={{
-                            marginLeft: 8,
-                            backgroundColor: '#ef4444',
-                            color: 'white',
-                            fontSize: '0.75rem',
-                            fontWeight: 'bold',
-                            padding: '2px 6px',
-                            borderRadius: '12px',
-                            display: 'inline-block',
-                            verticalAlign: 'middle'
-                          }}>
+                          <span className="rooms-unread-badge">
                             {room.unreadCount} unread
                           </span>
                         )}
-                        {room.description && <p style={{ margin: '4px 0 2px', color: '#6b7280', fontSize: '0.9em' }}>{room.description}</p>}
-                        <p style={{ margin: 0, fontSize: '0.8em', color: '#9ca3af' }}>
+                        {room.description && <p className="rooms-item-desc">{room.description}</p>}
+                        <p className="rooms-item-meta">
                           Owner: {room.owner.username} · {room.members.length} member{room.members.length !== 1 ? 's' : ''}
                         </p>
 
                         {/* Invite section if owner/admin */}
                         {(isOwner(room) || room.admins.includes(user?.id || '')) && (
-                          <div style={{ marginTop: 10, display: 'flex', gap: 5 }}>
+                          <div className="rooms-action-input-row">
                             <input
                               placeholder="Invite username"
                               value={inviteInputs[room._id] || ''}
                               onChange={e => setInviteInputs(prev => ({ ...prev, [room._id]: e.target.value }))}
-                              style={{ padding: '4px 8px', fontSize: '0.85em', borderRadius: 4, border: '1px solid #ccc' }}
+                              className="rooms-action-input"
                             />
-                            <button onClick={() => handleInvite(room._id)} style={{ padding: '4px 8px', fontSize: '0.85em', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                            <button onClick={() => handleInvite(room._id)} className="rooms-btn-invite">
                               Invite
                             </button>
                           </div>
@@ -233,14 +224,14 @@ export const Rooms: React.FC = () => {
 
                         {/* Ban section if owner/admin */}
                         {(isOwner(room) || room.admins.includes(user?.id || '')) && (
-                          <div style={{ marginTop: 8, display: 'flex', gap: 5 }}>
+                          <div className="rooms-action-input-row-sm">
                             <input
                               placeholder="Ban username"
                               value={banInputs[room._id] || ''}
                               onChange={e => setBanInputs(prev => ({ ...prev, [room._id]: e.target.value }))}
-                              style={{ padding: '4px 8px', fontSize: '0.85em', borderRadius: 4, border: '1px solid #ccc' }}
+                              className="rooms-action-input"
                             />
-                            <button onClick={() => handleBan(room._id)} style={{ padding: '4px 8px', fontSize: '0.85em', background: '#374151', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                            <button onClick={() => handleBan(room._id)} className="rooms-btn-ban">
                               Ban
                             </button>
                           </div>
@@ -248,18 +239,18 @@ export const Rooms: React.FC = () => {
 
                         {/* Banned Users list (if any) */}
                         {(isOwner(room) || room.admins.includes(user?.id || '')) && room.bannedUsers.length > 0 && (
-                          <div style={{ marginTop: 8, fontSize: '0.8em', color: '#ef4444' }}>
+                          <div className="rooms-banned-text">
                             <strong>Banned:</strong> {room.bannedUsers.length} user(s).
                             {/* Note: username lookup for bannedUsers would require population or another call, 
                               for now just showing count or placeholder. Simple unban would need the username. */}
                           </div>
                         )}
                       </div>
-                      <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12 }}>
+                      <div className="rooms-item-actions">
                         {isOwner(room) ? (
-                          <button onClick={() => handleDelete(room._id)} style={{ padding: '5px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Delete</button>
+                          <button onClick={() => handleDelete(room._id)} className="rooms-btn-delete">Delete</button>
                         ) : (
-                          <button onClick={() => handleLeave(room._id)} style={{ padding: '5px 12px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Leave</button>
+                          <button onClick={() => handleLeave(room._id)} className="rooms-btn-leave">Leave</button>
                         )}
                       </div>
                     </div>
@@ -270,37 +261,37 @@ export const Rooms: React.FC = () => {
           </div>
 
           {/* Public Catalog */}
-          <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0 }}>Public Catalog ({rooms.filter(r => !isMember(r) && r.visibility === 'public').length})</h3>
+          <div className="rooms-list-card">
+            <div className="rooms-search-row">
+              <h3 className="rooms-search-header">Public Catalog ({rooms.filter(r => !isMember(r) && r.visibility === 'public').length})</h3>
               <input
                 placeholder="Search public rooms..."
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
-                style={{ padding: '6px 12px', borderRadius: 20, border: '1px solid #ccc', width: '40%' }}
+                className="rooms-search-input"
               />
             </div>
             {rooms.filter(r => !isMember(r) && r.visibility === 'public').length === 0 ? (
-              <p style={{ color: '#6b7280' }}>No other public rooms found.</p>
+              <p className="rooms-empty-text">No other public rooms found.</p>
             ) : (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              <ul className="rooms-list">
                 {rooms.filter(r => !isMember(r) && r.visibility === 'public').map(room => (
-                  <li key={room._id} style={{ padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <li key={room._id} className="rooms-list-item">
+                    <div className="rooms-item-row">
                       <div>
-                        <Link to={`/rooms/${room._id}`} style={{ textDecoration: 'none', color: '#1f2937' }}>
+                        <Link to={`/rooms/${room._id}`} className="rooms-item-title">
                           <strong>{room.name}</strong>
                         </Link>
-                        <span style={{ marginLeft: 8, fontSize: '0.78em', color: '#3b82f6', border: '1px solid #3b82f6', padding: '1px 6px', borderRadius: 10 }}>
+                        <span className="rooms-visibility-badge rooms-visibility-public">
                           public
                         </span>
-                        {room.description && <p style={{ margin: '4px 0 2px', color: '#6b7280', fontSize: '0.9em' }}>{room.description}</p>}
-                        <p style={{ margin: 0, fontSize: '0.8em', color: '#9ca3af' }}>
+                        {room.description && <p className="rooms-item-desc">{room.description}</p>}
+                        <p className="rooms-item-meta">
                           Owner: {room.owner.username} · {room.members.length} member{room.members.length !== 1 ? 's' : ''}
                         </p>
                       </div>
-                      <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12 }}>
-                        <button onClick={() => handleJoin(room._id)} style={{ padding: '5px 12px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Join</button>
+                      <div className="rooms-item-actions">
+                        <button onClick={() => handleJoin(room._id)} className="rooms-btn-join">Join</button>
                       </div>
                     </div>
                   </li>

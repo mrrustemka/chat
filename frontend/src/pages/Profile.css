@@ -1,0 +1,86 @@
+.profile-container {
+  max-width: 600px;
+  margin: 50px auto;
+  padding: 20px;
+}
+
+.profile-card {
+  margin-bottom: 20px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.profile-session-list {
+  list-style-type: none;
+  padding: 0;
+}
+
+.profile-session-item {
+  margin-bottom: 15px;
+  padding: 10px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+}
+
+.profile-session-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.profile-session-current-badge {
+  margin-left: 10px;
+  color: green;
+  font-size: 0.8em;
+  border: 1px solid green;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.profile-session-details {
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 5px;
+}
+
+.profile-btn-session {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: darkred;
+  border: none;
+  border-radius: 4px;
+}
+
+.profile-btn-session-current {
+  background-color: #ffcccb;
+}
+
+.profile-btn-session-revoke {
+  background-color: #ff9999;
+}
+
+.profile-actions-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 30px;
+}
+
+.profile-btn-logout {
+  padding: 10px 20px;
+  cursor: pointer;
+  background-color: #eee;
+  color: #333;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.profile-btn-delete {
+  padding: 10px 20px;
+  cursor: pointer;
+  background-color: #f02849;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+}
