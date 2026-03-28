@@ -100,7 +100,12 @@ export const listRooms = async (req: AuthRequest, res: Response) => {
 export const getRoom = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!._id;
-    const room = await Room.findById(req.params.id).populate('owner', 'username').populate('members', 'username');
+    const room = await Room.findById(req.params.id)
+      .populate('owner', 'username')
+      .populate('members', 'username')
+      .populate('admins', 'username')
+      .populate('bannedUsers.user', 'username')
+      .populate('bannedUsers.bannedBy', 'username');
 
     if (!room) return res.status(404).json({ message: 'Room not found' });
 
@@ -317,17 +322,8 @@ export const removeMember = async (req: AuthRequest, res: Response) => {
     room.members = room.members.filter(m => m.toString() !== targetUserId);
     room.admins = room.admins.filter(a => a.toString() !== targetUserId);
     
-    // Treat removal as a ban
-    if (!room.bannedUsers.some(b => b.user.toString() === targetUserId)) {
-      room.bannedUsers.push({
-        user: new mongoose.Types.ObjectId(targetUserId as string),
-        bannedBy: userId as any,
-        bannedAt: new Date()
-      });
-    }
-
     await room.save();
-    res.json({ message: 'Member removed and banned from room' });
+    res.json({ message: 'Member removed from room' });
   } catch (error) {
     console.error('removeMember error:', error);
     res.status(500).json({ message: 'Server error' });

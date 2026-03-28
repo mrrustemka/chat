@@ -29,9 +29,16 @@ interface Message {
 interface Room {
   _id: string;
   name: string;
-  owner: string | { _id: string; username: string };
+  description?: string;
+  visibility: 'public' | 'private';
+  owner: { _id: string; username: string } | string;
   members: { _id: string; username: string }[];
-  admins: string[];
+  admins: ({ _id: string; username: string } | string)[];
+  bannedUsers: {
+    user: { _id: string; username: string };
+    bannedBy: { _id: string; username: string };
+    bannedAt: string;
+  }[];
 }
 
 export const ChatRoom: React.FC = () => {
@@ -52,6 +59,9 @@ export const ChatRoom: React.FC = () => {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const isInitialLoad = useRef(true);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<{ _id: string; username: string } | null>(null);
+  const [isAdminView, setIsAdminView] = useState(false); // To toggle between members and banned users in settings
 
   const addEmoji = (emoji: string) => {
     setInputText(prev => prev + emoji);
@@ -61,7 +71,7 @@ export const ChatRoom: React.FC = () => {
     try {
       const res = await api.get(`/rooms/${id}`);
       setRoom(res.data);
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to load room details');
     }
   }, [id]);
@@ -114,7 +124,7 @@ export const ChatRoom: React.FC = () => {
           }, 100);
         }
       }
-    } catch (err) {
+    } catch (_err) {
       // Possible access denied
     } finally {
       if (before) setIsLoadingMore(false);
@@ -128,6 +138,73 @@ export const ChatRoom: React.FC = () => {
     const interval = setInterval(fetchMessages, 3000);
     return () => clearInterval(interval);
   }, [fetchRoom, fetchMessages, id]);
+
+  const handleBan = async (username: string) => {
+    if (!room) return;
+    try {
+      await api.post(`/rooms/${room._id}/ban`, { username });
+      fetchRoom();
+      setSelectedMember(null);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to ban user');
+    }
+  };
+
+  const handleUnban = async (username: string) => {
+    if (!room) return;
+    try {
+      await api.post(`/rooms/${room._id}/unban`, { username });
+      fetchRoom();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to unban user');
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!room) return;
+    try {
+      await api.delete(`/rooms/${room._id}/members/${userId}`);
+      fetchRoom();
+      setSelectedMember(null);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to remove member');
+    }
+  };
+
+  const handleToggleAdmin = async (userId: string, username: string, isAdmin: boolean) => {
+    if (!room) return;
+    try {
+      if (isAdmin) {
+        await api.delete(`/rooms/${room._id}/admins/${userId}`);
+      } else {
+        await api.post(`/rooms/${room._id}/admins`, { username });
+      }
+      fetchRoom();
+      setSelectedMember(null);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to toggle admin status');
+    }
+  };
+
+  const handleDeleteRoom = async () => {
+    if (!room || !window.confirm('Are you sure you want to delete this room and all its messages? This cannot be undone.')) return;
+    try {
+      await api.delete(`/rooms/${room._id}`);
+      window.location.href = '/rooms';
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete room');
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!room || !window.confirm('Delete this message?')) return;
+    try {
+      await api.delete(`/rooms/${room._id}/messages/${messageId}`);
+      setMessages(prev => prev.map(m => m._id === messageId ? { ...m, isDeleted: true, content: '[This message was deleted]' } : m));
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete message');
+    }
+  };
 
   useEffect(() => {
     if (isInitialLoad.current) return;
@@ -189,15 +266,6 @@ export const ChatRoom: React.FC = () => {
     }
   };
 
-  const handleDelete = async (messageId: string) => {
-    if (!window.confirm('Delete this message?')) return;
-    try {
-      await api.delete(`/rooms/${id}/messages/${messageId}`);
-      fetchMessages();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete message');
-    }
-  };
 
   const handleStartEdit = (msg: Message) => {
     setEditingMessage(msg);
@@ -240,7 +308,17 @@ export const ChatRoom: React.FC = () => {
       <header style={{ padding: '15px 20px', background: 'white', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#1c1e21' }}>{room.name}</h2>
-          <Link to="/rooms" style={{ fontSize: '0.85rem', color: '#1877f2', textDecoration: 'none', fontWeight: 600 }}>← All Rooms</Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+            <Link to="/rooms" style={{ fontSize: '0.85rem', color: '#1877f2', textDecoration: 'none', fontWeight: 600 }}>← All Rooms</Link>
+            {(room.owner === user?.id || (typeof room.owner === 'object' && room.owner._id === user?.id) || room.admins.some(a => (typeof a === 'string' ? a === user?.id : a._id === user?.id))) && (
+              <button 
+                onClick={() => setShowSettingsModal(true)} 
+                style={{ background: '#f0f2f5', border: 'none', padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontSize: '0.75rem', color: '#65676b', display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                ⚙️ Settings
+              </button>
+            )}
+          </div>
         </div>
         <div style={{ fontSize: '0.85rem', color: '#65676b' }}>
           {room.members.length} members
@@ -357,11 +435,11 @@ export const ChatRoom: React.FC = () => {
 
                       {!msg.isDeleted && (
                         msg.sender._id === user?.id ||
-                        room.admins?.includes(user?.id || '') ||
+                        room.admins.some(a => (typeof a === 'string' ? a === user?.id : a._id === user?.id)) ||
                         (typeof room.owner === 'object' ? room.owner._id === user?.id : room.owner === user?.id)
                       ) && (
                           <button
-                            onClick={() => handleDelete(msg._id)}
+                            onClick={() => handleDeleteMessage(msg._id)}
                             style={{ background: 'none', border: 'none', color: 'inherit', padding: '0 4px', cursor: 'pointer', opacity: 0.6, fontSize: '0.75rem' }}
                           >
                             Delete
@@ -497,6 +575,111 @@ export const ChatRoom: React.FC = () => {
               </div>
             </div>
           </form>
+          {/* MODALS */}
+          {showSettingsModal && room && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+              <div style={{ background: 'white', width: 500, borderRadius: 8, padding: 20, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: 10, marginBottom: 15 }}>
+                  <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Room Settings</h2>
+                  <button onClick={() => setShowSettingsModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#65676b' }}>×</button>
+                </div>
+                
+                <div style={{ display: 'flex', gap: 20, marginBottom: 15, borderBottom: '1px solid #eee' }}>
+                  <button onClick={() => setIsAdminView(false)} style={{ paddingBottom: 8, border: 'none', background: 'none', borderBottom: !isAdminView ? '3px solid #1877f2' : 'none', color: !isAdminView ? '#1877f2' : '#65676b', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>Members ({room.members.length})</button>
+                  <button onClick={() => setIsAdminView(true)} style={{ paddingBottom: 8, border: 'none', background: 'none', borderBottom: isAdminView ? '3px solid #1877f2' : 'none', color: isAdminView ? '#1877f2' : '#65676b', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>Banned Users ({room.bannedUsers.length})</button>
+                </div>
+
+                {!isAdminView ? (
+                  <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                      {room.members.map(member => {
+                        const isMemberAdmin = room.admins.some(a => (typeof a === 'string' ? a === member._id : a._id === member._id));
+                        const isMemberOwner = (typeof room.owner === 'string' ? room.owner === member._id : room.owner._id === member._id);
+                        return (
+                          <li key={member._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f0f2f5' }}>
+                            <div>
+                              <span style={{ fontWeight: 500, color: '#050505' }}>{member.username}</span>
+                              {isMemberOwner && <span style={{ marginLeft: 8, fontSize: '0.7rem', background: '#e7f3ff', color: '#1877f2', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Owner</span>}
+                              {isMemberAdmin && !isMemberOwner && <span style={{ marginLeft: 8, fontSize: '0.7rem', background: '#f0f2f5', color: '#65676b', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Admin</span>}
+                            </div>
+                            {member._id !== user?.id && !isMemberOwner && (
+                              <button 
+                                onClick={() => setSelectedMember(member)} 
+                                style={{ color: '#1877f2', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+                              >
+                                Manage
+                              </button>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    {(room.owner === user?.id || (typeof room.owner === 'object' && room.owner._id === user?.id)) && (
+                      <div style={{ marginTop: 20, borderTop: '1px solid #eee', paddingTop: 15 }}>
+                        <button onClick={handleDeleteRoom} style={{ background: '#f02849', color: 'white', border: 'none', padding: '8px 16px', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>Delete Room</button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+                    {room.bannedUsers.length === 0 ? <p style={{ textAlign: 'center', color: '#65676b', padding: '20px 0' }}>No banned users.</p> : (
+                      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                        {room.bannedUsers.map(b => (
+                          <li key={b.user._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f0f2f5' }}>
+                            <div>
+                              <strong style={{ color: '#050505' }}>{b.user.username}</strong>
+                              <div style={{ fontSize: '0.7rem', color: '#65676b', marginTop: 2 }}>Banned by {b.bannedBy.username} on {new Date(b.bannedAt).toLocaleDateString()}</div>
+                            </div>
+                            <button onClick={() => handleUnban(b.user.username)} style={{ color: '#1877f2', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>Unban</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {selectedMember && room && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
+              <div style={{ background: 'white', width: 350, borderRadius: 8, padding: 20, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: 10, marginBottom: 15 }}>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Manage {selectedMember.username}</h3>
+                  <button onClick={() => setSelectedMember(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#65676b' }}>×</button>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {/* Owner actions */}
+                  {(room.owner === user?.id || (typeof room.owner === 'object' && room.owner._id === user?.id)) && (
+                    <button 
+                      onClick={() => handleToggleAdmin(
+                        selectedMember._id, 
+                        selectedMember.username, 
+                        room.admins.some(a => (typeof a === 'string' ? a === selectedMember._id : a._id === selectedMember._id))
+                      )} 
+                      style={{ padding: '10px 12px', background: '#f0f2f5', border: 'none', borderRadius: 6, cursor: 'pointer', textAlign: 'left', fontWeight: 500, fontSize: '0.9rem' }}
+                    >
+                      {room.admins.some(a => (typeof a === 'string' ? a === selectedMember._id : a._id === selectedMember._id)) ? '🚫 Remove Admin' : '⭐ Make Admin'}
+                    </button>
+                  )}
+                  
+                  {/* Admin actions */}
+                  {(room.owner === user?.id || (typeof room.owner === 'object' && room.owner._id === user?.id) || room.admins.some(a => (typeof a === 'string' ? a === user?.id : a._id === user?.id))) && selectedMember._id !== (typeof room.owner === 'string' ? room.owner : room.owner._id) && (
+                    <>
+                      <div style={{ padding: '4px 0', fontSize: '0.75rem', color: '#65676b' }}>Remove: kicks user, can rejoin if public.</div>
+                      <button onClick={() => handleRemoveMember(selectedMember._id)} style={{ padding: '10px 12px', background: '#f0f2f5', border: 'none', borderRadius: 6, cursor: 'pointer', textAlign: 'left', fontWeight: 500, fontSize: '0.9rem' }}>🚪 Remove Member</button>
+                      
+                      <div style={{ padding: '4px 0', fontSize: '0.75rem', color: '#65676b', marginTop: 4 }}>Ban: kicks user and prevents rejoining.</div>
+                      <button onClick={() => handleBan(selectedMember.username)} style={{ padding: '10px 12px', background: '#f02849', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', textAlign: 'left', fontWeight: 600, fontSize: '0.9rem' }}>🔨 Ban from Room</button>
+                    </>
+                  )}
+                  
+                  <button onClick={() => setSelectedMember(null)} style={{ padding: '10px 12px', background: 'none', border: '1px solid #ddd', borderRadius: 6, cursor: 'pointer', marginTop: 4, fontWeight: 500, fontSize: '0.9rem' }}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
