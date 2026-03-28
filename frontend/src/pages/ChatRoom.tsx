@@ -69,7 +69,7 @@ export const ChatRoom: React.FC = () => {
 
       if (before) {
         if (fetched.length < 50) setHasMore(false);
-        
+
         // Save scroll position
         const container = scrollContainerRef.current;
         const oldScrollHeight = container?.scrollHeight || 0;
@@ -86,7 +86,7 @@ export const ChatRoom: React.FC = () => {
         setMessages(prev => {
           const existingIds = new Set(prev.map(m => m._id));
           const newOnly = fetched.filter(m => !existingIds.has(m._id));
-          
+
           if (newOnly.length === 0) {
             // Update existing messages (for edits/deletions)
             return prev.map(p => {
@@ -99,7 +99,7 @@ export const ChatRoom: React.FC = () => {
           // Keep it capped if we want, but for now just append
           return next;
         });
-        
+
         if (isInitialLoad.current) {
           setTimeout(() => {
             messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
@@ -124,7 +124,7 @@ export const ChatRoom: React.FC = () => {
 
   useEffect(() => {
     if (isInitialLoad.current) return;
-    
+
     const container = scrollContainerRef.current;
     if (container) {
       const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 200;
@@ -222,21 +222,10 @@ export const ChatRoom: React.FC = () => {
     }
   };
 
-  const handleAddFriend = async (username: string) => {
-    const text = window.prompt(`Send friend request to ${username}? (Message optional):`);
-    if (text === null) return;
-    try {
-      await api.post('/friends/request', { username, message: text });
-      alert(`Friend request sent to ${username}`);
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to send friend request');
-    }
-  };
-
   if (!room) return <div style={{ padding: 20 }}>Loading room... <Link to="/rooms">Back</Link></div>;
 
   return (
-    <div style={{ display: 'flex', height: '100vh', flexDirection: 'column', background: '#f0f2f5' }}>
+    <div style={{ display: 'flex', height: '100%', flex: 1, flexDirection: 'column', background: '#f0f2f5' }}>
       {/* Header */}
       <header style={{ padding: '15px 20px', background: 'white', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
         <div>
@@ -253,7 +242,7 @@ export const ChatRoom: React.FC = () => {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
           {error && <div style={{ background: '#ffebe8', color: '#f02849', padding: 8, textAlign: 'center', fontSize: '0.9rem' }}>{error}</div>}
 
-          <div 
+          <div
             ref={scrollContainerRef}
             onScroll={handleScroll}
             style={{ flex: 1, overflowY: 'auto', padding: '20px' }}
@@ -324,9 +313,9 @@ export const ChatRoom: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <div style={{ 
-                        wordBreak: 'break-word', 
-                        whiteSpace: 'pre-wrap', 
+                      <div style={{
+                        wordBreak: 'break-word',
+                        whiteSpace: 'pre-wrap',
                         fontSize: '0.93rem',
                         fontStyle: msg.isDeleted ? 'italic' : 'normal',
                         opacity: msg.isDeleted ? 0.6 : 1
@@ -346,7 +335,7 @@ export const ChatRoom: React.FC = () => {
                       >
                         Reply
                       </button>
-                      
+
                       {!msg.isDeleted && msg.sender._id === user?.id && (
                         <button
                           onClick={() => handleStartEdit(msg)}
@@ -357,17 +346,17 @@ export const ChatRoom: React.FC = () => {
                       )}
 
                       {!msg.isDeleted && (
-                        msg.sender._id === user?.id || 
-                        room.admins?.includes(user?.id || '') || 
+                        msg.sender._id === user?.id ||
+                        room.admins?.includes(user?.id || '') ||
                         (typeof room.owner === 'object' ? room.owner._id === user?.id : room.owner === user?.id)
                       ) && (
-                        <button
-                          onClick={() => handleDelete(msg._id)}
-                          style={{ background: 'none', border: 'none', color: 'inherit', padding: '0 4px', cursor: 'pointer', opacity: 0.6, fontSize: '0.75rem' }}
-                        >
-                          Delete
-                        </button>
-                      )}
+                          <button
+                            onClick={() => handleDelete(msg._id)}
+                            style={{ background: 'none', border: 'none', color: 'inherit', padding: '0 4px', cursor: 'pointer', opacity: 0.6, fontSize: '0.75rem' }}
+                          >
+                            Delete
+                          </button>
+                        )}
                     </div>
                   </div>
                 </div>
@@ -402,10 +391,10 @@ export const ChatRoom: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.85rem', color: '#1877f2' }}>
                 <span>📎 <strong>{pendingFile.name}</strong> ({(pendingFile.size / 1024).toFixed(1)} KB)</span>
                 {pendingFile.type.startsWith('image/') && (
-                  <img 
-                    src={URL.createObjectURL(pendingFile)} 
-                    alt="preview" 
-                    style={{ height: 30, borderRadius: 4, objectFit: 'cover' }} 
+                  <img
+                    src={URL.createObjectURL(pendingFile)}
+                    alt="preview"
+                    style={{ height: 30, borderRadius: 4, objectFit: 'cover' }}
                   />
                 )}
               </div>
@@ -480,36 +469,6 @@ export const ChatRoom: React.FC = () => {
             </div>
           </form>
         </div>
-
-        {/* Sidebar */}
-        <aside style={{ width: 280, background: 'white', borderLeft: '1px solid #ddd', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: 20 }}>
-            <h3 style={{ margin: '0 0 15px 0', fontSize: '1rem', color: '#65676b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Room Members</h3>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {room.members.map(member => (
-                <li key={member._id} style={{ padding: '8px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#e4e6eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 600 }}>
-                      {member.username[0].toUpperCase()}
-                    </div>
-                    <span style={{ fontSize: '0.93rem', fontWeight: 500, color: '#050505' }}>
-                      {member.username} {member._id === user?.id && '(You)'}
-                    </span>
-                  </div>
-                  {member._id !== user?.id && (
-                    <button
-                      onClick={() => handleAddFriend(member.username)}
-                      title="Add Friend"
-                      style={{ background: '#e7f3ff', border: 'none', color: '#1877f2', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '1.1rem' }}
-                    >
-                      +
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </aside>
       </div>
     </div>
   );

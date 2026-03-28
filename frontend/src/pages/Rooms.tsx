@@ -40,18 +40,6 @@ export const Rooms: React.FC = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  const handleAddFriend = async (username: string) => {
-    const text = window.prompt(`Send friend request to ${username}? (Message optional):`);
-    if (text === null) return;
-    try {
-      await api.post('/friends/request', { username, message: text });
-      setMessage(`Friend request sent to ${username}`);
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message || 'Failed to send friend request');
-    }
-  };
-
   const fetchRooms = useCallback(async (search = '') => {
     const res = await api.get(`/rooms${search ? `?search=${encodeURIComponent(search)}` : ''}`);
     setRooms(res.data);
@@ -127,17 +115,6 @@ export const Rooms: React.FC = () => {
     }
   };
 
-  const handleUnban = async (id: string, username: string) => {
-    try {
-      await api.post(`/rooms/${id}/unban`, { username });
-      setMessage(`User ${username} unbanned!`);
-      fetchRooms(searchInput);
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message || 'Failed to unban user');
-    }
-  };
-
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this room?')) return;
     try {
@@ -167,168 +144,170 @@ export const Rooms: React.FC = () => {
   const isOwner = (room: Room) => room.owner._id === user?.id;
 
   return (
-    <div style={{ maxWidth: 700, margin: '50px auto', padding: 20 }}>
-      <h2>Chat Rooms</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      {message && <p style={{ color: 'green' }}>{message}</p>}
+    <div style={{ height: '100%', overflowY: 'auto', padding: '20px' }}>
+      <div style={{ maxWidth: 700, margin: '0 auto' }}>
+        <h2>Chat Rooms</h2>
+        {error && <p style={{ color: 'red' }}>{error}</p>}
+        {message && <p style={{ color: 'green' }}>{message}</p>}
 
-      {/* Create Room */}
-      <div style={{ marginBottom: 28, padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
-        <h3 style={{ marginTop: 0 }}>Create a Room</h3>
-        <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <input
-            placeholder="Room name *"
-            value={nameInput}
-            onChange={e => setNameInput(e.target.value)}
-            required
-            style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
-          />
-          <input
-            placeholder="Description (optional)"
-            value={descInput}
-            onChange={e => setDescInput(e.target.value)}
-            style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
-          />
-          <select value={typeInput} onChange={e => setTypeInput(e.target.value as RoomType)} style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc' }}>
-            <option value="public">Public</option>
-            <option value="private">Private</option>
-          </select>
-          <button type="submit" style={{ padding: '9px 0', background: '#3b82f6', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
-            Create Room
-          </button>
-        </form>
-      </div>
-
-      {/* Room Lists */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
-        {/* My Rooms */}
-        <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
-          <h3 style={{ marginTop: 0 }}>My Rooms ({rooms.filter(isMember).length})</h3>
-          {rooms.filter(isMember).length === 0 ? (
-            <p style={{ color: '#6b7280' }}>You haven't joined any rooms yet.</p>
-          ) : (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {rooms.filter(isMember).map(room => (
-                <li key={room._id} style={{ padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <Link to={`/rooms/${room._id}`} style={{ textDecoration: 'none', color: '#1f2937' }}>
-                        <strong>{room.name}</strong>
-                      </Link>
-                      <span style={{ marginLeft: 8, fontSize: '0.78em', color: room.visibility === 'public' ? '#3b82f6' : '#8b5cf6', border: `1px solid ${room.visibility === 'public' ? '#3b82f6' : '#8b5cf6'}`, padding: '1px 6px', borderRadius: 10 }}>
-                        {room.visibility}
-                      </span>
-                      {room.unreadCount !== undefined && room.unreadCount > 0 && (
-                        <span style={{
-                          marginLeft: 8,
-                          backgroundColor: '#ef4444',
-                          color: 'white',
-                          fontSize: '0.75rem',
-                          fontWeight: 'bold',
-                          padding: '2px 6px',
-                          borderRadius: '12px',
-                          display: 'inline-block',
-                          verticalAlign: 'middle'
-                        }}>
-                          {room.unreadCount} unread
-                        </span>
-                      )}
-                      {room.description && <p style={{ margin: '4px 0 2px', color: '#6b7280', fontSize: '0.9em' }}>{room.description}</p>}
-                      <p style={{ margin: 0, fontSize: '0.8em', color: '#9ca3af' }}>
-                        Owner: {room.owner.username} · {room.members.length} member{room.members.length !== 1 ? 's' : ''}
-                      </p>
-
-                      {/* Invite section if owner/admin */}
-                      {(isOwner(room) || room.admins.includes(user?.id || '')) && (
-                        <div style={{ marginTop: 10, display: 'flex', gap: 5 }}>
-                          <input
-                            placeholder="Invite username"
-                            value={inviteInputs[room._id] || ''}
-                            onChange={e => setInviteInputs(prev => ({ ...prev, [room._id]: e.target.value }))}
-                            style={{ padding: '4px 8px', fontSize: '0.85em', borderRadius: 4, border: '1px solid #ccc' }}
-                          />
-                          <button onClick={() => handleInvite(room._id)} style={{ padding: '4px 8px', fontSize: '0.85em', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
-                            Invite
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Ban section if owner/admin */}
-                      {(isOwner(room) || room.admins.includes(user?.id || '')) && (
-                        <div style={{ marginTop: 8, display: 'flex', gap: 5 }}>
-                          <input
-                            placeholder="Ban username"
-                            value={banInputs[room._id] || ''}
-                            onChange={e => setBanInputs(prev => ({ ...prev, [room._id]: e.target.value }))}
-                            style={{ padding: '4px 8px', fontSize: '0.85em', borderRadius: 4, border: '1px solid #ccc' }}
-                          />
-                          <button onClick={() => handleBan(room._id)} style={{ padding: '4px 8px', fontSize: '0.85em', background: '#374151', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
-                            Ban
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Banned Users list (if any) */}
-                      {(isOwner(room) || room.admins.includes(user?.id || '')) && room.bannedUsers.length > 0 && (
-                        <div style={{ marginTop: 8, fontSize: '0.8em', color: '#ef4444' }}>
-                          <strong>Banned:</strong> {room.bannedUsers.length} user(s).
-                          {/* Note: username lookup for bannedUsers would require population or another call, 
-                              for now just showing count or placeholder. Simple unban would need the username. */}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12 }}>
-                      {isOwner(room) ? (
-                        <button onClick={() => handleDelete(room._id)} style={{ padding: '5px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Delete</button>
-                      ) : (
-                        <button onClick={() => handleLeave(room._id)} style={{ padding: '5px 12px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Leave</button>
-                      )}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+        {/* Create Room */}
+        <div style={{ marginBottom: 28, padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
+          <h3 style={{ marginTop: 0 }}>Create a Room</h3>
+          <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <input
+              placeholder="Room name *"
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              required
+              style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+            />
+            <input
+              placeholder="Description (optional)"
+              value={descInput}
+              onChange={e => setDescInput(e.target.value)}
+              style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+            />
+            <select value={typeInput} onChange={e => setTypeInput(e.target.value as RoomType)} style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc' }}>
+              <option value="public">Public</option>
+              <option value="private">Private</option>
+            </select>
+            <button type="submit" style={{ padding: '9px 0', background: '#3b82f6', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+              Create Room
+            </button>
+          </form>
         </div>
 
-        {/* Public Catalog */}
-        <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h3 style={{ margin: 0 }}>Public Catalog ({rooms.filter(r => !isMember(r) && r.visibility === 'public').length})</h3>
-            <input
-              placeholder="Search public rooms..."
-              value={searchInput}
-              onChange={e => setSearchInput(e.target.value)}
-              style={{ padding: '6px 12px', borderRadius: 20, border: '1px solid #ccc', width: '40%' }}
-            />
+        {/* Room Lists */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
+          {/* My Rooms */}
+          <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
+            <h3 style={{ marginTop: 0 }}>My Rooms ({rooms.filter(isMember).length})</h3>
+            {rooms.filter(isMember).length === 0 ? (
+              <p style={{ color: '#6b7280' }}>You haven't joined any rooms yet.</p>
+            ) : (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {rooms.filter(isMember).map(room => (
+                  <li key={room._id} style={{ padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <Link to={`/rooms/${room._id}`} style={{ textDecoration: 'none', color: '#1f2937' }}>
+                          <strong>{room.name}</strong>
+                        </Link>
+                        <span style={{ marginLeft: 8, fontSize: '0.78em', color: room.visibility === 'public' ? '#3b82f6' : '#8b5cf6', border: `1px solid ${room.visibility === 'public' ? '#3b82f6' : '#8b5cf6'}`, padding: '1px 6px', borderRadius: 10 }}>
+                          {room.visibility}
+                        </span>
+                        {room.unreadCount !== undefined && room.unreadCount > 0 && (
+                          <span style={{
+                            marginLeft: 8,
+                            backgroundColor: '#ef4444',
+                            color: 'white',
+                            fontSize: '0.75rem',
+                            fontWeight: 'bold',
+                            padding: '2px 6px',
+                            borderRadius: '12px',
+                            display: 'inline-block',
+                            verticalAlign: 'middle'
+                          }}>
+                            {room.unreadCount} unread
+                          </span>
+                        )}
+                        {room.description && <p style={{ margin: '4px 0 2px', color: '#6b7280', fontSize: '0.9em' }}>{room.description}</p>}
+                        <p style={{ margin: 0, fontSize: '0.8em', color: '#9ca3af' }}>
+                          Owner: {room.owner.username} · {room.members.length} member{room.members.length !== 1 ? 's' : ''}
+                        </p>
+
+                        {/* Invite section if owner/admin */}
+                        {(isOwner(room) || room.admins.includes(user?.id || '')) && (
+                          <div style={{ marginTop: 10, display: 'flex', gap: 5 }}>
+                            <input
+                              placeholder="Invite username"
+                              value={inviteInputs[room._id] || ''}
+                              onChange={e => setInviteInputs(prev => ({ ...prev, [room._id]: e.target.value }))}
+                              style={{ padding: '4px 8px', fontSize: '0.85em', borderRadius: 4, border: '1px solid #ccc' }}
+                            />
+                            <button onClick={() => handleInvite(room._id)} style={{ padding: '4px 8px', fontSize: '0.85em', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                              Invite
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Ban section if owner/admin */}
+                        {(isOwner(room) || room.admins.includes(user?.id || '')) && (
+                          <div style={{ marginTop: 8, display: 'flex', gap: 5 }}>
+                            <input
+                              placeholder="Ban username"
+                              value={banInputs[room._id] || ''}
+                              onChange={e => setBanInputs(prev => ({ ...prev, [room._id]: e.target.value }))}
+                              style={{ padding: '4px 8px', fontSize: '0.85em', borderRadius: 4, border: '1px solid #ccc' }}
+                            />
+                            <button onClick={() => handleBan(room._id)} style={{ padding: '4px 8px', fontSize: '0.85em', background: '#374151', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                              Ban
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Banned Users list (if any) */}
+                        {(isOwner(room) || room.admins.includes(user?.id || '')) && room.bannedUsers.length > 0 && (
+                          <div style={{ marginTop: 8, fontSize: '0.8em', color: '#ef4444' }}>
+                            <strong>Banned:</strong> {room.bannedUsers.length} user(s).
+                            {/* Note: username lookup for bannedUsers would require population or another call, 
+                              for now just showing count or placeholder. Simple unban would need the username. */}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12 }}>
+                        {isOwner(room) ? (
+                          <button onClick={() => handleDelete(room._id)} style={{ padding: '5px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Delete</button>
+                        ) : (
+                          <button onClick={() => handleLeave(room._id)} style={{ padding: '5px 12px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Leave</button>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          {rooms.filter(r => !isMember(r) && r.visibility === 'public').length === 0 ? (
-            <p style={{ color: '#6b7280' }}>No other public rooms found.</p>
-          ) : (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {rooms.filter(r => !isMember(r) && r.visibility === 'public').map(room => (
-                <li key={room._id} style={{ padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <Link to={`/rooms/${room._id}`} style={{ textDecoration: 'none', color: '#1f2937' }}>
-                        <strong>{room.name}</strong>
-                      </Link>
-                      <span style={{ marginLeft: 8, fontSize: '0.78em', color: '#3b82f6', border: '1px solid #3b82f6', padding: '1px 6px', borderRadius: 10 }}>
-                        public
-                      </span>
-                      {room.description && <p style={{ margin: '4px 0 2px', color: '#6b7280', fontSize: '0.9em' }}>{room.description}</p>}
-                      <p style={{ margin: 0, fontSize: '0.8em', color: '#9ca3af' }}>
-                        Owner: {room.owner.username} · {room.members.length} member{room.members.length !== 1 ? 's' : ''}
-                      </p>
+
+          {/* Public Catalog */}
+          <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0 }}>Public Catalog ({rooms.filter(r => !isMember(r) && r.visibility === 'public').length})</h3>
+              <input
+                placeholder="Search public rooms..."
+                value={searchInput}
+                onChange={e => setSearchInput(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: 20, border: '1px solid #ccc', width: '40%' }}
+              />
+            </div>
+            {rooms.filter(r => !isMember(r) && r.visibility === 'public').length === 0 ? (
+              <p style={{ color: '#6b7280' }}>No other public rooms found.</p>
+            ) : (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {rooms.filter(r => !isMember(r) && r.visibility === 'public').map(room => (
+                  <li key={room._id} style={{ padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <Link to={`/rooms/${room._id}`} style={{ textDecoration: 'none', color: '#1f2937' }}>
+                          <strong>{room.name}</strong>
+                        </Link>
+                        <span style={{ marginLeft: 8, fontSize: '0.78em', color: '#3b82f6', border: '1px solid #3b82f6', padding: '1px 6px', borderRadius: 10 }}>
+                          public
+                        </span>
+                        {room.description && <p style={{ margin: '4px 0 2px', color: '#6b7280', fontSize: '0.9em' }}>{room.description}</p>}
+                        <p style={{ margin: 0, fontSize: '0.8em', color: '#9ca3af' }}>
+                          Owner: {room.owner.username} · {room.members.length} member{room.members.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12 }}>
+                        <button onClick={() => handleJoin(room._id)} style={{ padding: '5px 12px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Join</button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12 }}>
-                      <button onClick={() => handleJoin(room._id)} style={{ padding: '5px 12px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Join</button>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </div>
     </div>

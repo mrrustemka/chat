@@ -131,90 +131,93 @@ export const Friends: React.FC = () => {
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: '50px auto', padding: 20 }}>
-      <h2>Friends</h2>
+    <div style={{ height: '100%', overflowY: 'auto', padding: '20px' }}>
+      <div style={{ maxWidth: 600, margin: '0 auto' }}>
+        <h2>Friends</h2>
 
-      {/* Add Friend */}
-      <div style={{ marginBottom: 24, padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
-        <h3 style={{ marginTop: 0 }}>Add Friend</h3>
-        {message && <p style={{ color: 'green' }}>{message}</p>}
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <form onSubmit={handleSendRequest} style={{ display: 'flex', gap: 8 }}>
-          <input
-            type="text"
-            placeholder="Enter username..."
-            value={usernameInput}
-            onChange={e => setUsernameInput(e.target.value)}
-            required
-            style={{ flex: 1, padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
-          />
-          <button type="submit" style={{ padding: '8px 16px', cursor: 'pointer', borderRadius: 4, border: 'none', background: '#3b82f6', color: 'white' }}>
-            Send Request
-          </button>
-        </form>
-      </div>
-
-      {/* Pending Requests */}
-      {pending.length > 0 && (
-        <div style={{ marginBottom: 24, padding: 16, border: '1px solid #f59e0b', borderRadius: 6 }}>
-          <h3 style={{ marginTop: 0 }}>Pending Requests</h3>
-          {pending.map(req => (
-            <div key={req.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <span><strong>{req.from.username}</strong> wants to be your friend</span>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => handleAccept(req.id)} style={{ padding: '6px 12px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Accept</button>
-                <button onClick={() => handleDecline(req.id)} style={{ padding: '6px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Decline</button>
-              </div>
-            </div>
-          ))}
+        {/* Add Friend */}
+        <div style={{ marginBottom: 24, padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
+          <h3 style={{ marginTop: 0 }}>Add Friend</h3>
+          {message && <p style={{ color: 'green' }}>{message}</p>}
+          {error && <p style={{ color: 'red' }}>{error}</p>}
+          <form onSubmit={handleSendRequest} style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              placeholder="Enter username..."
+              value={usernameInput}
+              onChange={e => setUsernameInput(e.target.value)}
+              required
+              style={{ flex: 1, padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+            />
+            <button type="submit" style={{ padding: '8px 16px', cursor: 'pointer', borderRadius: 4, border: 'none', background: '#3b82f6', color: 'white' }}>
+              Send Request
+            </button>
+          </form>
         </div>
-      )}
 
-      {/* Friend List */}
-      <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
-        <h3 style={{ marginTop: 0 }}>My Friends ({friends.length})</h3>
-        {friends.length === 0 ? (
-          <p style={{ color: '#6b7280' }}>No friends yet. Send a request to get started!</p>
-        ) : (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {friends.map(f => {
-              const s = f.status ?? 'offline';
-              return (
-                <li key={f.friendshipId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f3f4f6' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: statusColor[s], display: 'inline-block' }} title={s} />
-                    <span><strong>{f.user.username}</strong></span>
-                    <span style={{ fontSize: '0.8em', color: '#6b7280', textTransform: 'capitalize' }}>{s}</span>
-                    {f.unreadCount !== undefined && f.unreadCount > 0 && (
-                      <span style={{
-                        backgroundColor: '#ef4444',
-                        color: 'white',
-                        fontSize: '0.75rem',
-                        fontWeight: 'bold',
-                        padding: '1px 6px',
-                        borderRadius: '10px',
-                      }}>
-                        {f.unreadCount}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      onClick={() => navigate(`/personal-chats/${f.chatId || f.user.username}`)}
-                      style={{ padding: '4px 10px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: '0.85em' }}
-                    >
-                      Chat
-                    </button>
-                    <button onClick={() => handleRemove(f.friendshipId)} style={{ padding: '4px 10px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: 4, cursor: 'pointer', fontSize: '0.85em' }}>
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+        {/* Pending Requests */}
+        {pending.length > 0 && (
+          <div style={{ marginBottom: 24, padding: 16, border: '1px solid #f59e0b', borderRadius: 6 }}>
+            <h3 style={{ marginTop: 0 }}>Pending Requests</h3>
+            {pending.map(req => (
+              <div key={req.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span><strong>{req.from.username}</strong> wants to be your friend</span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => handleAccept(req.id)} style={{ padding: '6px 12px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Accept</button>
+                  <button onClick={() => handleDecline(req.id)} style={{ padding: '6px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Decline</button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
+
+        {/* Friend List */}
+        <div style={{ padding: 16, border: '1px solid #ccc', borderRadius: 6 }}>
+          <h3 style={{ marginTop: 0 }}>My Friends ({friends.length})</h3>
+          {friends.length === 0 ? (
+            <p style={{ color: '#6b7280' }}>No friends yet. Send a request to get started!</p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {friends.map(f => {
+                const s = f.status ?? 'offline';
+                return (
+                  <li key={f.friendshipId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: statusColor[s], display: 'inline-block' }} title={s} />
+                      <span><strong>{f.user.username}</strong></span>
+                      <span style={{ fontSize: '0.8em', color: '#6b7280', textTransform: 'capitalize' }}>{s}</span>
+                      {f.unreadCount !== undefined && f.unreadCount > 0 && (
+                        <span style={{
+                          backgroundColor: '#ef4444',
+                          color: 'white',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          padding: '1px 6px',
+                          borderRadius: '10px',
+                        }}>
+                          {f.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={() => navigate(`/personal-chats/${f.chatId || f.user.username}`)}
+                        style={{ padding: '4px 10px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: '0.85em' }}
+                      >
+                        Chat
+                      </button>
+                      <button onClick={() => handleRemove(f.friendshipId)} style={{ padding: '4px 10px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: 4, cursor: 'pointer', fontSize: '0.85em' }}>
+                        Remove
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );
 };
+

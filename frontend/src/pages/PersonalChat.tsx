@@ -209,7 +209,7 @@ export const PersonalChat: React.FC = () => {
   if (!chat) return <div style={{ padding: 20 }}>Loading chat... <Link to="/friends">Back</Link></div>;
 
   return (
-    <div style={{ display: 'flex', height: '100vh', flexDirection: 'column', background: '#f0f2f5' }}>
+    <div style={{ display: 'flex', height: '100%', flex: 1, flexDirection: 'column', background: '#f0f2f5' }}>
       <header style={{ padding: '15px 20px', background: 'white', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#1c1e21' }}>{otherUser?.username || 'Private Chat'}</h2>
