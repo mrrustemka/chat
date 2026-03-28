@@ -91,6 +91,15 @@ export function initSocketManager(io: Server) {
       }
     });
 
+    socket.on('getPresence', (userIds: string[]) => {
+      if (!Array.isArray(userIds)) return;
+      const statuses: Record<string, PresenceStatus> = {};
+      for (const id of userIds) {
+        statuses[id] = getOverallStatus(id);
+      }
+      socket.emit('presenceBatch', statuses);
+    });
+
     socket.on('disconnect', () => {
       console.log(`Socket disconnected: ${socket.id}`);
       if (!authenticatedUserId) return;

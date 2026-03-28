@@ -107,14 +107,30 @@ export const RightSidebar: React.FC = () => {
       setPresence(prev => ({ ...prev, ...data }));
     };
 
+    const handleMessage = (data: { room?: string, personalChat?: string, message: any }) => {
+      // If we are currently in this room/chat, ignore (markAsRead will handle it)
+      if (data.room && location.pathname === `/rooms/${data.room}`) return;
+      if (data.personalChat && location.pathname === `/personal-chats/${data.personalChat}`) return;
+
+      // Update unread count for the room/chat in state
+      if (data.room) {
+        setRooms(prev => prev.map(r => r._id === data.room ? { ...r, unreadCount: (r.unreadCount || 0) + 1 } : r));
+      }
+      if (data.personalChat) {
+        setChats(prev => prev.map(c => c._id === data.personalChat ? { ...c, unreadCount: (c.unreadCount || 0) + 1 } : c));
+      }
+    };
+
     socket.on('presenceUpdate', handlePresence);
     socket.on('presenceBatch', handlePresenceBatch);
+    socket.on('newMessage', handleMessage);
 
     return () => {
       socket.off('presenceUpdate', handlePresence);
       socket.off('presenceBatch', handlePresenceBatch);
+      socket.off('newMessage', handleMessage);
     };
-  }, [socket]);
+  }, [socket, location.pathname]);
 
   // Fetch presence for contacts
   useEffect(() => {

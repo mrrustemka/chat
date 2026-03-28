@@ -535,8 +535,11 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     });
 
     await message.save();
-    const populatedMessage = await message.populate('sender', 'username');
-    
+    const populatedMessage = await message.populate([
+      { path: 'sender', select: 'username' },
+      { path: 'replyTo', populate: { path: 'sender', select: 'username' } }
+    ]);
+
     // Emit to all members
     emitToUsers(room.members.map(m => m.toString()), 'newMessage', {
       room: roomId,
@@ -555,7 +558,7 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!._id;
     const { id: roomId } = req.params;
-    const { comment } = req.body;
+    const { comment, replyTo } = req.body;
     const file = req.file;
 
     if (!file) return res.status(400).json({ message: 'No file uploaded' });
@@ -599,10 +602,14 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
       sender: userId,
       content: comment || file.originalname,
       type: isImage ? 'image' : 'file',
-      file: fileDoc._id
+      file: fileDoc._id,
+      replyTo: replyTo || undefined
     });
     await message.save();
-    const populatedMessage = await message.populate('sender', 'username');
+    const populatedMessage = await message.populate([
+      { path: 'sender', select: 'username' },
+      { path: 'replyTo', populate: { path: 'sender', select: 'username' } }
+    ]);
 
     // Emit to all members
     emitToUsers(room.members.map(m => m.toString()), 'newMessage', {

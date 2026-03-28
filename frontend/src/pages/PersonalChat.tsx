@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { emojis } from '../utils/emojis';
+
 
 interface Message {
   _id: string;
@@ -46,6 +48,11 @@ export const PersonalChat: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const isInitialLoad = useRef(true);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  const addEmoji = (emoji: string) => {
+    setInputText(prev => prev + emoji);
+  };
 
   const fetchChat = useCallback(async () => {
     try {
@@ -64,7 +71,7 @@ export const PersonalChat: React.FC = () => {
           return found._id;
         }
       }
-      
+
       // Fallback or if it's a username
       res = await api.post(`/personal-chats/get-or-create/${id}`);
       // The backend response for get-or-create doesn't populate participants.
@@ -108,7 +115,7 @@ export const PersonalChat: React.FC = () => {
           }
           return [...prev, ...newOnly];
         });
-        
+
         if (isInitialLoad.current) {
           setTimeout(() => {
             messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
@@ -156,6 +163,7 @@ export const PersonalChat: React.FC = () => {
         const formData = new FormData();
         formData.append('file', pendingFile);
         if (inputText.trim()) formData.append('comment', inputText.trim());
+        if (replyTarget) formData.append('replyTo', replyTarget._id);
         await api.post(`/personal-chats/${chat._id}/upload`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
@@ -270,12 +278,77 @@ export const PersonalChat: React.FC = () => {
             <div ref={messagesEndRef} />
           </div>
 
+          {replyTarget && (
+            <div style={{ padding: '8px 20px', background: '#f0f2f5', borderTop: '1px solid #ddd', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                Replying to <strong>{replyTarget.sender.username}</strong>: {replyTarget.content}
+              </div>
+              <button onClick={() => setReplyTarget(null)} style={{ background: 'none', border: 'none', color: '#f02849', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+            </div>
+          )}
+
           <form onSubmit={handleSend} style={{ padding: '12px 20px', background: 'white', borderTop: '1px solid #ddd' }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#f0f2f5', padding: '4px 12px', borderRadius: 20 }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
               <input type="file" hidden ref={fileInputRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) setPendingFile(f); }} />
-              <button type="button" onClick={() => fileInputRef.current?.click()} style={{ background: 'none', border: 'none', color: '#0084ff', cursor: 'pointer', fontSize: '1.2rem' }}>📎</button>
-              <textarea value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e as any); } }} placeholder="Type a message..." style={{ flex: 1, padding: '8px 0', border: 'none', background: 'transparent', outline: 'none', resize: 'none', maxHeight: 100, fontSize: '0.93rem' }} rows={1} />
-              <button type="submit" disabled={(!inputText.trim() && !pendingFile) || isUploading} style={{ background: 'none', border: 'none', color: (inputText.trim() || pendingFile) ? '#0084ff' : '#bcc0c4', fontWeight: 600, cursor: 'pointer' }}>Send</button>
+              <button type="button" onClick={() => fileInputRef.current?.click()} style={{ background: 'none', border: 'none', color: '#0084ff', cursor: 'pointer', fontSize: '1.5rem', padding: '4px 0' }}>📎</button>
+
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', padding: '4px 0' }}
+                >
+                  😀
+                </button>
+                {showEmojiPicker && (
+                  <div style={{ position: 'absolute', bottom: '100%', left: 0, background: 'white', border: '1px solid #ddd', borderRadius: 8, padding: 8, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 5, boxShadow: '0 -2px 10px rgba(0,0,0,0.1)', zIndex: 10, width: 220, maxHeight: 200, overflowY: 'auto' }}>
+                    {emojis.map(e => (
+                      <span key={e} onClick={() => addEmoji(e)} style={{ cursor: 'pointer', fontSize: '1.2rem', padding: 4, textAlign: 'center' }}>{e}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <textarea
+                value={inputText}
+                onChange={e => setInputText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    setShowEmojiPicker(false);
+                    handleSend(e as any);
+                  }
+                }}
+                placeholder="Type a message..."
+                style={{
+                  flex: 1,
+                  padding: '10px 15px',
+                  borderRadius: 20,
+                  border: 'none',
+                  background: '#f0f2f5',
+                  outline: 'none',
+                  resize: 'none',
+                  maxHeight: 150,
+                  fontSize: '0.93rem',
+                  fontFamily: 'inherit',
+                  lineHeight: '1.4'
+                }}
+                rows={Math.min(5, inputText.split('\n').length || 1)}
+              />
+              <button
+                type="submit"
+                disabled={(!inputText.trim() && !pendingFile) || isUploading}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: (inputText.trim() || pendingFile) ? '#0084ff' : '#bcc0c4',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: '8px 0'
+                }}
+              >
+                Send
+              </button>
             </div>
             {pendingFile && <div style={{ fontSize: '0.75rem', marginTop: 4, color: '#1877f2' }}>Selected: {pendingFile.name} <span onClick={() => setPendingFile(null)} style={{ cursor: 'pointer', textDecoration: 'underline' }}>Remove</span></div>}
           </form>

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { emojis } from '../utils/emojis';
+
 
 interface Message {
   _id: string;
@@ -49,6 +51,11 @@ export const ChatRoom: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const isInitialLoad = useRef(true);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  const addEmoji = (emoji: string) => {
+    setInputText(prev => prev + emoji);
+  };
 
   const fetchRoom = useCallback(async () => {
     try {
@@ -153,6 +160,9 @@ export const ChatRoom: React.FC = () => {
         formData.append('file', pendingFile);
         if (inputText.trim()) {
           formData.append('comment', inputText.trim());
+        }
+        if (replyTarget) {
+          formData.append('replyTo', replyTarget._id);
         }
         await api.post(`/rooms/${id}/upload`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
@@ -420,6 +430,23 @@ export const ChatRoom: React.FC = () => {
                 📎
               </button>
 
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', padding: '4px 0' }}
+                >
+                  😀
+                </button>
+                {showEmojiPicker && (
+                  <div style={{ position: 'absolute', bottom: '100%', left: 0, background: 'white', border: '1px solid #ddd', borderRadius: 8, padding: 8, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 5, boxShadow: '0 -2px 10px rgba(0,0,0,0.1)', zIndex: 10, width: 220, maxHeight: 200, overflowY: 'auto' }}>
+                    {emojis.map(e => (
+                      <span key={e} onClick={() => addEmoji(e)} style={{ cursor: 'pointer', fontSize: '1.2rem', padding: 4, textAlign: 'center' }}>{e}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <textarea
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
@@ -427,6 +454,7 @@ export const ChatRoom: React.FC = () => {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
+                    setShowEmojiPicker(false);
                     handleSend(e as any);
                   }
                 }}
@@ -434,17 +462,18 @@ export const ChatRoom: React.FC = () => {
                 disabled={isUploading}
                 style={{
                   flex: 1,
-                  padding: '8px 12px',
+                  padding: '10px 15px',
                   borderRadius: 20,
                   border: 'none',
                   background: '#f0f2f5',
                   outline: 'none',
                   resize: 'none',
-                  maxHeight: 120,
+                  maxHeight: 150,
                   fontSize: '0.93rem',
-                  fontFamily: 'inherit'
+                  fontFamily: 'inherit',
+                  lineHeight: '1.4'
                 }}
-                rows={1}
+                rows={Math.min(5, inputText.split('\n').length || 1)}
               />
               <button
                 type="submit"
