@@ -15,15 +15,15 @@ A real-time chat application built with NodeJS, Express, React, TypeScript, and 
 ### Prerequisites
 
 - Node.js (v18+)
-- Docker & Docker Compose
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (must be installed **and running** before the next step)
 
 ### Setup
 
 1. **Infrastructure**:
-   Start the MongoDB database using Docker:
+   Make sure Docker Desktop is open and its engine is started, then run:
 
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 
 2. **Backend**:
